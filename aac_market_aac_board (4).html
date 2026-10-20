@@ -1,0 +1,3494 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>街市買餸 AAC 溝通板 | Market AAC Board</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <!-- LZString for compact URL hash compression -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+  <!-- QRCode.js for generating QR codes on screen -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      background-color: #f8fafc;
+    }
+    .aac-card {
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      touch-action: manipulation;
+    }
+    .aac-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px -4px rgba(37, 99, 235, 0.15);
+    }
+    .aac-card:active {
+      transform: scale(0.97);
+    }
+    .aac-card.drag-over-folder {
+      outline: 4px dashed #2563eb !important;
+      outline-offset: 4px;
+      transform: scale(1.05) !important;
+      background-color: #eff6ff !important;
+    }
+    .aac-card.drag-over-reorder {
+      outline: 3px solid #f59e0b !important;
+      outline-offset: 2px;
+    }
+    .speaking-pulse {
+      animation: pulse-ring 1.3s infinite;
+    }
+    @keyframes pulse-ring {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { box-shadow: 0 0 0 14px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    ::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="min-h-screen text-slate-800 flex flex-col antialiased">
+
+  <!-- ================= 1. TOP HEADER ================= -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3">
+      <!-- Left: Logo & Title -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold text-xl shadow-xs shrink-0">
+          <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24">
+            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg sm:text-xl font-black text-slate-900 tracking-tight leading-none">
+              街市買餸
+            </h1>
+            <span class="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full">
+              AAC 溝通板
+            </span>
+          </div>
+          <p class="text-xs text-slate-400 font-medium mt-0.5">
+            粵語主導 / Dual Cantonese &amp; English Voice
+          </p>
+        </div>
+      </div>
+
+      <!-- Right: Grid Selector, Voice Settings, Sync, Therapist Mode -->
+      <div class="flex items-center gap-2 sm:gap-2.5 flex-wrap">
+        <!-- Grid layout selector -->
+        <div class="relative">
+          <select id="grid-layout-select" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 focus:outline-none cursor-pointer transition">
+            <option value="grid-9" selected>田 9格 (3x3)</option>
+            <option value="grid-6">田 6格 (3x2)</option>
+            <option value="grid-12">田 12格 (4x3)</option>
+            <option value="grid-auto">田 自動格數</option>
+          </select>
+        </div>
+
+        <!-- Cross-Device Sync & Share Button -->
+        <button id="btn-open-sync" type="button" class="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl border border-blue-200 flex items-center gap-1.5 shadow-xs transition cursor-pointer" title="跨裝置分享與同步 (Cross-Device Sync &amp; Share)">
+          <span class="text-sm">🔗</span>
+          <span>跨裝置同步 Sync</span>
+        </button>
+
+        <!-- Voice Settings Button -->
+        <button id="btn-open-settings" type="button" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 flex items-center gap-1.5 shadow-xs transition cursor-pointer">
+          <span class="text-sm">🔊</span>
+          <span>語音設定</span>
+        </button>
+
+        <!-- Speech Therapist Mode Button -->
+        <button id="btn-toggle-editor" type="button" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 flex items-center gap-1.5 shadow-xs transition cursor-pointer">
+          <span class="text-sm">👤</span>
+          <span id="editor-btn-text">言語治療師模式</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Speech Therapist Editing Toolbar (Only shown in Editor Mode) -->
+    <div id="editor-banner" class="hidden bg-amber-50 border-t border-b border-amber-200 px-3 sm:px-6 py-2 text-xs sm:text-sm text-amber-950 flex flex-wrap items-center justify-between gap-2 shadow-xs">
+      <div class="flex items-center gap-2 font-medium">
+        <span class="bg-amber-500 text-white text-xs px-2 py-0.5 rounded-md font-black shadow-xs">編輯模式 ACTIVE</span>
+        <span class="text-xs text-amber-900">可自由新增卡片/資料夾、更換圖片、拖曳排序或拖入資料夾、建立新主頁。</span>
+      </div>
+      <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+        <button id="btn-add-item-top" type="button" class="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs shadow-xs flex items-center gap-1 transition cursor-pointer">
+          <span>➕</span> 新增項目
+        </button>
+        <button id="btn-add-folder-top" type="button" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs shadow-xs flex items-center gap-1 transition cursor-pointer">
+          <span>📁</span> 新增資料夾
+        </button>
+        <button id="btn-new-home-top" type="button" class="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs shadow-xs flex items-center gap-1 transition cursor-pointer">
+          <span>🏠</span> 建立新主頁
+        </button>
+        <button id="btn-manage-boards-top" type="button" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg text-xs shadow-xs flex items-center gap-1 transition cursor-pointer">
+          <span>📋</span> 管理版面
+        </button>
+        <button id="btn-sync-top" type="button" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs shadow-xs flex items-center gap-1 transition cursor-pointer">
+          <span>🔗</span> 跨裝置同步
+        </button>
+        <button id="btn-export-json-top" type="button" class="px-2.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold rounded-lg text-xs shadow-xs flex items-center gap-1 transition cursor-pointer">
+          <span>💾</span> 匯出 JSON
+        </button>
+        <button id="btn-import-json-top" type="button" class="px-2.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold rounded-lg text-xs shadow-xs flex items-center gap-1 transition cursor-pointer">
+          <span>📥</span> 匯入 JSON
+        </button>
+        <button id="btn-reset-default-top" type="button" class="px-2.5 py-1.5 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-lg text-xs font-bold transition cursor-pointer">
+          🔄 重設預設
+        </button>
+        <input type="file" id="import-file-input" accept=".json" class="hidden" />
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= 2. MAIN WORKSPACE ================= -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-3 sm:py-4 flex flex-col gap-3.5">
+
+    <!-- SENTENCE BAR (Matching user reference layout exactly) -->
+    <section class="bg-white rounded-2xl border border-slate-200 p-2 sm:p-2.5 shadow-xs flex items-center gap-2 sm:gap-3">
+      <!-- Green Play Button on Left with Counter -->
+      <button id="btn-sentence-speak" type="button" class="h-11 sm:h-12 px-3.5 sm:px-4 bg-[#10a37f] hover:bg-[#0e906f] active:bg-[#0c7c5f] text-white rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-2 transition shadow-xs shrink-0 cursor-pointer" title="朗讀整句 (Speak Sentence)">
+        <span class="text-base sm:text-lg">▶</span>
+        <span id="sentence-item-count" class="bg-white/20 px-1.5 py-0.5 rounded-md text-xs font-bold">0</span>
+      </button>
+
+      <!-- Center Sentence Sequence Bar -->
+      <div id="sentence-items-container" class="flex-1 min-h-[46px] sm:min-h-[50px] bg-[#fffdf5] border border-amber-200/70 rounded-xl px-3 py-1.5 flex items-center gap-2 overflow-x-auto transition-all">
+        <div id="sentence-empty-placeholder" class="text-slate-400 text-xs sm:text-sm font-medium flex items-center gap-1.5">
+          <span>👈</span>
+          <span>點擊下方圖卡以加入句子並發音 (Tap cards to speak and add to sentence)...</span>
+        </div>
+      </div>
+
+      <!-- Right Action Controls (Delete / Backspace & Clear) -->
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button id="btn-sentence-backspace" type="button" title="刪除最後一個項目 (Backspace)" class="w-10 sm:w-11 h-11 sm:h-12 bg-white hover:bg-rose-50 text-rose-500 rounded-xl font-bold flex items-center justify-center transition border border-rose-200 shadow-xs cursor-pointer">
+          <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
+            <path d="M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-3 12.59L17.59 17 14 13.41 10.41 17 9 15.59 12.59 12 9 8.41 10.41 7 14 10.59 17.59 7 19 8.41 15.41 12 19 15.59z"/>
+          </svg>
+        </button>
+        <button id="btn-sentence-clear" type="button" title="清除全部 (Clear All)" class="w-10 sm:w-11 h-11 sm:h-12 bg-white hover:bg-slate-100 text-slate-500 rounded-xl font-bold flex items-center justify-center transition border border-slate-200 shadow-xs cursor-pointer">
+          <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
+            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- NAVIGATION & BREADCRUMBS BAR (Matching user reference) -->
+    <section class="flex items-center justify-between gap-2 px-1 py-1">
+      <!-- Left: Shopping Cart Icon + Current Board Path -->
+      <div class="flex items-center gap-2 text-slate-800 font-black text-sm sm:text-base">
+        <span class="text-blue-600 text-lg">🛒</span>
+        <span id="current-board-title" class="tracking-tight">街市買餸</span>
+        <span id="board-tile-count" class="text-xs font-bold text-slate-400 bg-slate-200/60 px-2 py-0.5 rounded-full">
+          -- 項
+        </span>
+      </div>
+
+      <!-- Right: Home Button -->
+      <div class="flex items-center gap-2">
+        <button id="btn-nav-back" type="button" class="px-3 py-1 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1 transition border border-slate-200 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed">
+          <span>⬅️</span>
+          <span>返回</span>
+        </button>
+        <button id="btn-nav-home" type="button" class="px-3.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-black flex items-center gap-1.5 transition border border-blue-200 shadow-xs">
+          <span>🏠</span>
+          <span>街市首頁 (Home)</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- TILES BOARD CONTAINER (Responsive Grid matching user image) -->
+    <section class="flex-1">
+      <div id="tiles-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5 pb-12">
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= 3. MODALS & DIALOGS ================= -->
+
+  <!-- CROSS-DEVICE SYNC & SHARE MODAL (Completely Redesigned for 100% Reliability) -->
+  <div id="modal-sync" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-5 hidden overflow-y-auto">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto flex flex-col gap-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
+          <span>🔗</span> 跨裝置同步與分享 (Cross-Device Sync &amp; Share)
+        </h3>
+        <button id="btn-close-sync-modal" type="button" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <!-- Sync Method Tabs -->
+      <div class="flex border-b border-slate-200 gap-1 text-xs sm:text-sm font-bold">
+        <button type="button" id="tab-btn-qrcode" class="px-3.5 py-2 border-b-2 border-blue-600 text-blue-600 cursor-pointer">
+          📷 掃碼 / 專屬連結
+        </button>
+        <button type="button" id="tab-btn-code" class="px-3.5 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 cursor-pointer">
+          📋 複製 / 貼上代碼 (最穩定)
+        </button>
+        <button type="button" id="tab-btn-cloud" class="px-3.5 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 cursor-pointer">
+          ☁️ 雲端房間同步
+        </button>
+      </div>
+
+      <!-- Tab Content 1: QR Code & Direct Link -->
+      <div id="tab-content-qrcode" class="flex flex-col gap-3.5">
+        <div class="p-3 bg-blue-50 rounded-xl border border-blue-200 text-xs text-blue-900 leading-relaxed">
+          <strong>💡 跨裝置免安裝同步：</strong> 點擊下方按鈕複製連結發送到另一部手機/平板，或直接使用手機鏡頭掃描二維碼開啟，即可<strong>完整載入您的所有自訂卡片與修改</strong>！
+        </div>
+
+        <!-- QR Code & Link container -->
+        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-center gap-4">
+          <div id="qrcode-container" class="w-40 h-40 bg-white p-2.5 rounded-xl border border-slate-300 flex items-center justify-center shrink-0 shadow-xs">
+            <div id="qrcode-render" class="w-full h-full flex items-center justify-center"></div>
+          </div>
+          <div class="flex-1 flex flex-col gap-2 w-full text-center sm:text-left">
+            <h4 class="text-sm font-bold text-slate-800 flex items-center justify-center sm:justify-start gap-1.5">
+              <span>📷</span> 手機 / 平板鏡頭直接掃碼
+            </h4>
+            <p class="text-xs text-slate-500 leading-relaxed">
+              開啟另一部手機相機對準左方二維碼，點擊彈出的網址即可在該手機顯示完全相同的溝通板（已包含所有自訂修改）。
+            </p>
+            <div class="flex gap-1.5 mt-1">
+              <input type="text" id="input-shareable-url" readonly class="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-700 font-mono select-all focus:outline-none" />
+              <button type="button" id="btn-copy-share-url" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xs rounded-lg shadow-xs shrink-0 flex items-center gap-1 cursor-pointer">
+                <span>📋</span> 複製連結
+              </button>
+            </div>
+            <!-- Custom Domain hint if in Canvas/Sandbox -->
+            <div id="sandbox-domain-helper" class="hidden text-[11px] text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200">
+              <span>⚠️ 偵測到本機沙盒預覽。若您已將網頁上傳到伺服器（例如 GitHub Pages），可在此輸入您的網址：</span>
+              <div class="flex gap-1 mt-1">
+                <input type="text" id="input-custom-host" placeholder="https://your-domain.com/index.html" class="flex-1 px-2 py-1 bg-white border border-amber-300 rounded text-xs" />
+                <button type="button" id="btn-save-custom-host" class="px-2 py-1 bg-amber-600 text-white font-bold rounded text-xs">套用</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content 2: Copy / Paste Sync Code String (100% Reliable Offline) -->
+      <div id="tab-content-code" class="hidden flex flex-col gap-3.5">
+        <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs text-emerald-950 leading-relaxed">
+          <strong>✅ 100% 絕對成功同步方式（免聯網、免伺服器、支援 WhatsApp/AirDrop）：</strong><br>
+          在電腦上點擊<strong>「複製同步代碼」</strong>，發送到手機或平板；在手機上開啟本頁面，在下方貼上代碼並點擊<strong>「載入同步」</strong>，即刻完成！
+        </div>
+
+        <!-- Export Code Box -->
+        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-2">
+          <label class="text-xs font-bold text-slate-800">
+            步驟 1：在此裝置複製同步代碼 (Copy Sync Code)
+          </label>
+          <div class="flex gap-2">
+            <textarea id="textarea-export-code" readonly rows="2" class="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-700 font-mono select-all focus:outline-none resize-none"></textarea>
+            <button type="button" id="btn-copy-code-string" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-xs shrink-0 flex items-center gap-1.5 cursor-pointer">
+              <span>📋</span> 複製代碼
+            </button>
+          </div>
+        </div>
+
+        <!-- Import Code Box -->
+        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-2">
+          <label class="text-xs font-bold text-slate-800">
+            步驟 2：在另一部裝置貼上同步代碼 (Paste &amp; Load)
+          </label>
+          <div class="flex gap-2">
+            <textarea id="textarea-import-code" placeholder="在此貼上由另一部裝置複製的同步代碼..." rows="2" class="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none"></textarea>
+            <button type="button" id="btn-apply-code-string" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xs rounded-xl shadow-xs shrink-0 flex items-center gap-1.5 cursor-pointer">
+              <span>📥</span> 載入同步
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content 3: Cloud Room Sync -->
+      <div id="tab-content-cloud" class="hidden flex flex-col gap-3.5">
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 leading-relaxed">
+          <strong>☁️ 雲端房間同步：</strong> 在兩部裝置輸入<strong>相同的房間代碼</strong>（例如您自訂的電話號碼或英文名），裝置 A 點擊「上傳」，裝置 B 點擊「下載」，即時完成雲端備份與更新！
+        </div>
+
+        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-2.5">
+          <div class="flex flex-wrap items-center gap-2">
+            <label for="input-room-code" class="text-xs font-bold text-slate-700">自訂房間代碼：</label>
+            <input type="text" id="input-room-code" placeholder="例如: 8888 或 aac123" class="w-40 px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none uppercase" />
+            <button type="button" id="btn-cloud-upload" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1 cursor-pointer">
+              <span>☁️</span> 1. 上傳設定
+            </button>
+            <button type="button" id="btn-cloud-download" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1 cursor-pointer">
+              <span>📥</span> 2. 下載同步
+            </button>
+          </div>
+          <div id="cloud-sync-status" class="text-xs text-slate-600 font-medium"></div>
+        </div>
+      </div>
+
+      <div class="border-t pt-3 flex justify-end">
+        <button type="button" id="btn-close-sync-modal-bottom" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm rounded-xl cursor-pointer">
+          關閉 Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT CARD MODAL -->
+  <div id="modal-edit-tile" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-5 hidden overflow-y-auto">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto flex flex-col gap-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <h3 id="modal-tile-heading" class="text-lg font-black text-slate-900 flex items-center gap-2">
+          <span>✏️</span> 編輯卡片 Edit AAC Card
+        </h3>
+        <button id="btn-close-edit-modal" type="button" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <form id="form-edit-tile" class="flex flex-col gap-3.5">
+        <input type="hidden" id="edit-tile-id" />
+
+        <!-- Type Selector -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">卡片類型 Card Type</label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="flex items-center gap-2 p-2.5 rounded-xl border-2 cursor-pointer font-bold text-sm hover:bg-slate-50 transition border-slate-200">
+              <input type="radio" name="tile-type" value="button" id="type-button" class="text-blue-600 focus:ring-blue-500" checked />
+              <span>項目按鈕 (Item / Food)</span>
+            </label>
+            <label class="flex items-center gap-2 p-2.5 rounded-xl border-2 cursor-pointer font-bold text-sm hover:bg-slate-50 transition border-slate-200">
+              <input type="radio" name="tile-type" value="folder" id="type-folder" class="text-blue-600 focus:ring-blue-500" />
+              <span>資料夾 (Folder)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Chinese & English Names -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="edit-chinese-label" class="block text-xs font-bold text-slate-700 mb-1">中文名稱 (Traditional Chinese) *</label>
+            <input type="text" id="edit-chinese-label" required placeholder="例如：西芹 / 鮮冬菇" class="w-full px-3 py-2 border rounded-xl text-slate-900 font-bold text-base focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+          </div>
+          <div>
+            <label for="edit-english-label" class="block text-xs font-bold text-slate-700 mb-1">英文名稱 (English)</label>
+            <input type="text" id="edit-english-label" placeholder="e.g. Celery / Shiitake" class="w-full px-3 py-2 border rounded-xl text-slate-900 font-medium text-base focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <!-- Target Board (Only if Folder) -->
+        <div id="field-load-board" class="hidden">
+          <label for="edit-load-board" class="block text-xs font-bold text-slate-700 mb-1">進入的目標版面 Target Board</label>
+          <select id="edit-load-board" class="w-full px-3 py-2 border rounded-xl text-slate-900 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+          </select>
+        </div>
+
+        <!-- Move to Board (If Item) -->
+        <div id="field-move-board">
+          <label for="edit-current-board-select" class="block text-xs font-bold text-slate-700 mb-1">所在版面 Move to Board</label>
+          <select id="edit-current-board-select" class="w-full px-3 py-2 border rounded-xl text-slate-900 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+          </select>
+        </div>
+
+        <!-- Image Management -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">卡片圖片 Image (URL / 上傳照片 / 圖示預設)</label>
+          <div class="flex items-start gap-3 mb-2">
+            <div id="preview-image-box" class="w-20 h-20 rounded-xl border-2 border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+              <img id="preview-image-elem" src="" alt="預覽" class="w-full h-full object-contain hidden" />
+              <span id="preview-placeholder" class="text-3xl text-slate-400">🖼️</span>
+            </div>
+            <div class="flex-1 flex flex-col gap-1.5">
+              <input type="text" id="edit-image-url" placeholder="輸入圖片 URL (https://...)" class="w-full px-3 py-1.5 border rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              <div class="flex items-center gap-2 flex-wrap">
+                <label class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg cursor-pointer border border-slate-300 flex items-center gap-1 shadow-xs">
+                  <span>📁</span> 選擇電腦檔案上傳
+                  <input type="file" id="edit-image-file" accept="image/*" class="hidden" />
+                </label>
+                <button type="button" id="btn-clear-image" class="px-2 py-1 text-xs text-rose-600 hover:underline">
+                  清除圖片
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Food Emoji Preset Bar -->
+          <div class="bg-slate-50 border border-slate-200 p-2 rounded-xl mt-1">
+            <div class="text-[11px] font-bold text-slate-500 mb-1">快速選取常用食品圖示 (Tap to use icon):</div>
+            <div class="flex items-center gap-1.5 flex-wrap text-lg">
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="🥦">🥦</button>
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="🥬">🥬</button>
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="🥕">🥕</button>
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="🍅">🍅</button>
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="🍆">🍆</button>
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="🌽">🌽</button>
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="🥔">🥔</button>
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="🍄">🍄</button>
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="🥩">🥩</button>
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="🍖">🍖</button>
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="🍗">🍗</button>
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="🐟">🐟</button>
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="🦐">🦐</button>
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="🦀">🦀</button>
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="🍎">🍎</button>
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="🍌">🍌</button>
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="🍓">🍓</button>
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="🥟">🥟</button>
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="♨️">♨️</button>
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="🍳">🍳</button>
+              <button type="button" class="preset-emoji-btn p-1 hover:bg-white rounded border border-transparent hover:border-slate-300" data-emoji="📁">📁</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sound Preview in Modal -->
+        <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+          <div class="text-xs text-slate-600">
+            <strong>試聽發音：</strong> 按下將先讀粵語，再讀英語
+          </div>
+          <button type="button" id="btn-test-modal-speech" class="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs font-bold rounded-lg flex items-center gap-1 transition cursor-pointer">
+            <span>🔊</span> 試聽發音 Test
+          </button>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center justify-between pt-3 border-t">
+          <div class="flex items-center gap-2">
+            <button type="button" id="btn-delete-tile-modal" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 flex items-center gap-1 cursor-pointer">
+              <span>🗑️</span> 刪除
+            </button>
+            <button type="button" id="btn-duplicate-tile-modal" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 flex items-center gap-1 cursor-pointer">
+              <span>📋</span> 複製
+            </button>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button" id="btn-cancel-tile-modal" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold rounded-xl cursor-pointer">
+              取消
+            </button>
+            <button type="submit" id="btn-save-tile-modal" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-black rounded-xl shadow-md cursor-pointer">
+              儲存卡片 Save
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- BOARD MANAGER MODAL -->
+  <div id="modal-manage-boards" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-5 hidden overflow-y-auto">
+    <div class="bg-white rounded-2xl max-w-xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto flex flex-col gap-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
+          <span>📋</span> 版面與首頁管理 Board Manager
+        </h3>
+        <button id="btn-close-boards-modal" type="button" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <!-- Add New Board Section -->
+      <div class="bg-blue-50 border border-blue-200 p-3.5 rounded-xl flex flex-col gap-2">
+        <h4 class="text-sm font-bold text-blue-900 flex items-center gap-1.5">
+          <span>➕</span> 建立全新版面或主頁 (Create New Board / Home)
+        </h4>
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input type="text" id="new-board-name-input" placeholder="版面名稱 (例如: 快餐店 / 日常交流 / 餐廳點餐)" class="flex-1 px-3 py-2 border rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+          <div class="flex items-center gap-2">
+            <label class="flex items-center gap-1.5 text-xs font-bold text-slate-700 cursor-pointer">
+              <input type="checkbox" id="new-board-is-root" class="rounded text-blue-600" />
+              <span>設為首頁</span>
+            </label>
+            <button type="button" id="btn-create-board-submit" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs shrink-0 cursor-pointer">
+              建立版面
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- List of all boards -->
+      <div>
+        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">現有所有版面 (點擊切換、設為首頁或重新命名)</h4>
+        <div id="boards-list-container" class="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
+        </div>
+      </div>
+
+      <div class="border-t pt-3 flex justify-end">
+        <button type="button" id="btn-done-boards-modal" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm rounded-xl cursor-pointer">
+          完成 Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VOICE SETTINGS MODAL -->
+  <div id="modal-settings" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-5 hidden overflow-y-auto">
+    <div class="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 flex flex-col gap-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
+          <span>⚙️</span> 語音設定 Voice Settings
+        </h3>
+        <button id="btn-close-settings-modal" type="button" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <div class="flex flex-col gap-4">
+        <div class="p-3 bg-blue-50 rounded-xl border border-blue-200 text-xs text-blue-900 leading-relaxed">
+          <strong>💡 語音朗讀設定：</strong> 預設採用清晰平穩語速 (0.8x) 與自然音調 (1.0)，點擊卡片時先播放純正粵語，間隔短暫停頓 (450ms) 後播放英語；點擊左側綠色按鈕時，連貫朗讀完整粵語句子，停頓後再朗讀完整英語句子。
+        </div>
+
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <label for="setting-speech-rate" class="text-xs font-bold text-slate-700">朗讀語速 Speech Rate</label>
+            <span id="label-speech-rate" class="text-xs font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded">0.8x (清晰推薦)</span>
+          </div>
+          <input type="range" id="setting-speech-rate" min="0.5" max="1.3" step="0.05" value="0.8" class="w-full accent-blue-600 cursor-pointer" />
+          <div class="flex justify-between text-[10px] text-slate-400 mt-0.5 font-bold">
+            <span>慢速 (0.5x)</span>
+            <span>清晰推薦 (0.8x)</span>
+            <span>標準 (1.0x)</span>
+            <span>快速 (1.3x)</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <label for="setting-speech-pitch" class="text-xs font-bold text-slate-700">語音音調 Pitch</label>
+            <span id="label-speech-pitch" class="text-xs font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded">1.0 (自然清晰)</span>
+          </div>
+          <input type="range" id="setting-speech-pitch" min="0.7" max="1.3" step="0.05" value="1.0" class="w-full accent-blue-600 cursor-pointer" />
+        </div>
+
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <label for="setting-speech-pause" class="text-xs font-bold text-slate-700">中英語音停頓間隔 Pause between Languages</label>
+            <span id="label-speech-pause" class="text-xs font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded">450 毫秒</span>
+          </div>
+          <input type="range" id="setting-speech-pause" min="200" max="1000" step="50" value="450" class="w-full accent-blue-600 cursor-pointer" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">粵語發音引擎 (Cantonese Voice)</label>
+          <div id="voice-cantonese-status" class="text-xs p-2.5 bg-slate-50 border rounded-xl text-slate-700 font-medium">
+            正在偵測系統粵語語音...
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">英語發音引擎 (English Voice)</label>
+          <div id="voice-english-status" class="text-xs p-2.5 bg-slate-50 border rounded-xl text-slate-700 font-medium">
+            正在偵測系統英語語音...
+          </div>
+        </div>
+
+        <button type="button" id="btn-test-settings-speech" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 shadow-xs transition cursor-pointer">
+          <span>🔊</span> 測試「西芹 Celery」雙語發音
+        </button>
+      </div>
+
+      <div class="border-t pt-3 flex justify-end">
+        <button type="button" id="btn-close-settings-modal-bottom" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm rounded-xl cursor-pointer">
+          儲存並關閉 Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIRM MODAL -->
+  <div id="modal-confirm" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 flex flex-col gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xl shrink-0">
+          ⚠️
+        </div>
+        <div>
+          <h4 id="confirm-title" class="text-base font-bold text-slate-900">確認操作 Confirm</h4>
+          <p id="confirm-message" class="text-xs text-slate-600 mt-0.5">您確定要執行此操作嗎？</p>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t">
+        <button type="button" id="btn-confirm-cancel" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg cursor-pointer">
+          取消 Cancel
+        </button>
+        <button type="button" id="btn-confirm-ok" class="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-xs cursor-pointer">
+          確定 Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none">
+  </div>
+
+  <!-- ================= 4. JAVASCRIPT LOGIC ================= -->
+  <script>
+    const ORIGINAL_BOARDS_DATA = [
+  {
+    "id": "board_home_root",
+    "name": "街市首頁",
+    "isRoot": true,
+    "tiles": [
+      {
+        "id": "tile_home_food",
+        "label": "食材食品 Food",
+        "sub": "包含蔬菜、菇類、肉類、海鮮、燒味、生果等",
+        "type": "folder",
+        "loadBoard": "6abe7deea6bb41b87362bba8",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790869109_1d943a49a0d1_%E8%94%AC%E8%8F%9C.jpg",
+        "icon": "🛒",
+        "backgroundColor": "#ffffff"
+      },
+      {
+        "id": "tile_home_cooking",
+        "label": "烹飪方式 Cooking Style",
+        "sub": "包含蒸、炒、煮、煎、炸、焗、炆、煲湯等烹調方法",
+        "type": "folder",
+        "loadBoard": "board_cooking_style",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791120876_1d943a49a0d1_5e3434fbbd5f4161baa4b6d74b674969_hanging-siu-mei-roasted-meat.jpg",
+        "icon": "🍳",
+        "backgroundColor": "#ffffff"
+      }
+    ]
+  },
+  {
+    "id": "6abe7deea6bb41b87362bba8",
+    "name": "食材食品",
+    "isRoot": false,
+    "tiles": [
+      {
+        "id": "S1LQGA9p7qK-",
+        "label": "蔬菜 Vegetable",
+        "type": "folder",
+        "loadBoard": "6abe7f56a6bb41b87362bd5e",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790869109_1d943a49a0d1_%E8%94%AC%E8%8F%9C.jpg",
+        "backgroundColor": "#ffffff"
+      },
+      {
+        "id": "1GuFatHcX",
+        "label": "菇 Mushroom",
+        "type": "folder",
+        "loadBoard": "6ac25c37a6bb41b8736618e0",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791124440_1d943a49a0d1_images-4.jpeg",
+        "backgroundColor": "#ffffff"
+      },
+      {
+        "id": "Hy-Y0OzBW",
+        "label": "豬肉 Pork",
+        "type": "folder",
+        "loadBoard": "6ac22772e9b569f4dc242523",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791124217_1d943a49a0d1_14-01%E8%B1%AC%E8%82%89%E6%98%AF%E5%B8%B8%E8%A6%8B%E7%9A%84%E8%82%89%E9%A1%9E_n.jpg",
+        "backgroundColor": "#ffffff"
+      },
+      {
+        "id": "aDemihk0z",
+        "label": "牛 Beef",
+        "type": "folder",
+        "loadBoard": "6ac25d97e9b569f4dc244fc0",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791124268_1d943a49a0d1_all_beef.webp",
+        "backgroundColor": "#ffffff"
+      },
+      {
+        "id": "vKl5c8sEL",
+        "label": "雞 Chicken",
+        "type": "folder",
+        "loadBoard": "6ac26203a6bb41b873661ec5",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791124314_1d943a49a0d1_6ace73ac8140ab9f.jpg",
+        "backgroundColor": "#ffffff"
+      },
+      {
+        "id": "XrE_XweW4",
+        "label": "羊 Mutton",
+        "type": "folder",
+        "loadBoard": "6ac25eba9707f685afb8daeb",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791124346_cdfc356103b3_images-3.jpeg",
+        "backgroundColor": "#ffffff"
+      },
+      {
+        "id": "7omQKIZs4",
+        "label": "海鮮 Seafood",
+        "type": "folder",
+        "loadBoard": "6ac22843e9b569f4dc2425bb",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791120858_0361109c3372__116559066_cbc41cd5-358d-40e4-84f2-7d00042cbad0.jpg.webp",
+        "backgroundColor": "#ffffff"
+      },
+      {
+        "id": "KBEAjHU3c",
+        "label": "燒味 Siu Mei",
+        "type": "folder",
+        "loadBoard": "6ac24964e9b569f4dc243e5a",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791120876_1d943a49a0d1_5e3434fbbd5f4161baa4b6d74b674969_hanging-siu-mei-roasted-meat.jpg",
+        "backgroundColor": "#ffffff"
+      },
+      {
+        "id": "PffTZ9om1",
+        "label": "生果 Fruit",
+        "type": "folder",
+        "loadBoard": "6ac24888e9b569f4dc243cec",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791120869_1d943a49a0d1_delicious-rainbow-fruits-royalty-free-image-1730693556.jpg.avif",
+        "backgroundColor": "#ffffff"
+      },
+      {
+        "id": "tfg8FUPO0",
+        "label": "冷凍食品 Frozen food",
+        "type": "folder",
+        "loadBoard": "6ac24de9e9b569f4dc244215",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791120886_cdfc356103b3_content_6dde7bf3-c6ab-48bd-883d-878d72e49082.avif",
+        "backgroundColor": "#ffffff"
+      },
+      {
+        "id": "card_mvfch9jv",
+        "label": "烹飪方式 Cooking Style",
+        "image": "",
+        "backgroundColor": "#ffffff",
+        "type": "folder",
+        "loadBoard": "6abe7deea6bb41b87362bba8"
+      }
+    ]
+  },
+  {
+    "id": "board_cooking_style",
+    "name": "烹飪方式",
+    "isRoot": false,
+    "tiles": [
+      {
+        "id": "cook_steam",
+        "label": "蒸 Steam",
+        "type": "button",
+        "image": "",
+        "icon": "♨️",
+        "backgroundColor": "#ffffff"
+      },
+      {
+        "id": "cook_stirfry",
+        "label": "炒 Stir-fry",
+        "type": "button",
+        "image": "",
+        "icon": "🍳",
+        "backgroundColor": "#ffffff"
+      },
+      {
+        "id": "cook_boil",
+        "label": "煮 Boil",
+        "type": "button",
+        "image": "",
+        "icon": "🍲",
+        "backgroundColor": "#ffffff"
+      },
+      {
+        "id": "cook_panfry",
+        "label": "煎 Pan-fry",
+        "type": "button",
+        "image": "",
+        "icon": "🥩",
+        "backgroundColor": "#ffffff"
+      },
+      {
+        "id": "cook_deepfry",
+        "label": "炸 Deep-fry",
+        "type": "button",
+        "image": "",
+        "icon": "🍗",
+        "backgroundColor": "#ffffff"
+      },
+      {
+        "id": "cook_bake",
+        "label": "焗 Bake",
+        "type": "button",
+        "image": "",
+        "icon": "🥧",
+        "backgroundColor": "#ffffff"
+      },
+      {
+        "id": "cook_braise",
+        "label": "炆 Braise",
+        "type": "button",
+        "image": "",
+        "icon": "🥘",
+        "backgroundColor": "#ffffff"
+      },
+      {
+        "id": "cook_soup",
+        "label": "煲湯 Soup",
+        "type": "button",
+        "image": "",
+        "icon": "🥣",
+        "backgroundColor": "#ffffff"
+      },
+      {
+        "id": "cook_quicksoup",
+        "label": "滾湯 Quick Boil Soup",
+        "type": "button",
+        "image": "",
+        "icon": "🍲",
+        "backgroundColor": "#ffffff"
+      },
+      {
+        "id": "cook_blanch",
+        "label": "白灼 Blanch",
+        "type": "button",
+        "image": "",
+        "icon": "🥢",
+        "backgroundColor": "#ffffff"
+      }
+    ]
+  },
+  {
+    "id": "6abe7f56a6bb41b87362bd5e",
+    "name": "蔬菜",
+    "tiles": [
+      {
+        "id": "rkZSf0q6XqK-",
+        "label": "西芹 Celery",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790908577_1d943a49a0d1_gemini_generated_image_siqcxksiqcxksiqc.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "H2lyWFXhQ",
+        "label": "西洋菜 Watercress",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790908564_0361109c3372_gemini_generated_image_8amvyn8amvyn8amv.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "rByniBYaI",
+        "label": "芥蘭 Chinese Kale",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790908674_0361109c3372_gemini_generated_image_jw07pjw07pjw07pj.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "2yf0bn2zN",
+        "label": "津菜 Tientsin cabbage",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790908270_0361109c3372_gemini_generated_image_yrl3vhyrl3vhyrl3.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "3u2czkgOa",
+        "label": "娃娃菜 Mini Tientsin Cabbage",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790911433_1d943a49a0d1_gemini_generated_image_61uop861uop861uo.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "VuHt47N4p",
+        "label": "豆苗 Pea Shoot",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790918906_1d943a49a0d1_gemini_generated_image_5gwjpy5gwjpy5gwj.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "vxKrKJXa2",
+        "label": "茼蒿 Garland chrysanthemum",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790919024_0361109c3372_gemini_generated_image_pjvfuppjvfuppjvf.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "tLAZfCIrR",
+        "label": "菜心 Flowering Chinese Cabbage",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790919069_1d943a49a0d1_gemini_generated_image_kxzenxkxzenxkxze.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "eO8UnTZ3O",
+        "label": "椰菜 Cabbage",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790919105_cdfc356103b3_gemini_generated_image_luexmsluexmsluex.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "8EgO2nGwl",
+        "label": "通菜 Water Spinach",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790920418_cdfc356103b3_gemini_generated_image_2jh3312jh3312jh3.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "m5LtbLxZQ",
+        "label": "西蘭花 Brocoli",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790920377_0361109c3372_gemini_generated_image_f24t3qf24t3qf24t.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "2vMp0gWOj",
+        "label": "椰菜花 Cauliflower",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790920231_1d943a49a0d1_gemini_generated_image_skhgjiskhgjiskhg.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "SdfVPyQ5H",
+        "label": "韭菜 Chinese Chive",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790920441_0361109c3372_gemini_generated_image_1nwdsz1nwdsz1nwd.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "Iu0zNGwBs",
+        "label": "西生菜 Iceburg lettuce",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790920758_cdfc356103b3_gemini_generated_image_bgi38sbgi38sbgi3.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "qs9u8xl1B",
+        "label": "韭菜花 Bud chive",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790920780_1d943a49a0d1_gemini_generated_image_e5bbhoe5bbhoe5bb.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "GrFmXh8rx",
+        "label": "苦瓜 Bitter cucumber",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790930109_1d943a49a0d1_gemini_generated_image_sv75oesv75oesv75.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "MwxCY2vxj",
+        "label": "青毛豆 Green Soybean",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790920962_1d943a49a0d1_gemini_generated_image_nvpiz7nvpiz7nvpi.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "6ZpfvFion",
+        "label": "矮瓜 eggplant",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790920985_0361109c3372_gemini_generated_image_7rjvdq7rjvdq7rjv.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "nqJtipOb8",
+        "label": "青瓜 Cucumber",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790930072_cdfc356103b3_gemini_generated_image_ui4p6xui4p6xui4p.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "wkNJvYSld",
+        "label": "節瓜 Hairy gourd",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790930150_0361109c3372_gemini_generated_image_8xahru8xahru8xah.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "C-JQxR6Ng",
+        "label": "甜豆 sweet pea",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790930175_0361109c3372_gemini_generated_image_klev9bklev9bklev.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "qJYHoymYd",
+        "label": "蘆筍 Asparagus",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790930277_cdfc356103b3_gemini_generated_image_klev9bklev9bklev-2.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "IWP3AZhJh",
+        "label": "蘿蔔 Radish",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790930319_0361109c3372_gemini_generated_image_4j7xgt4j7xgt4j7x-4.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "QWLDrI9Pu",
+        "label": "馬鈴薯 potato",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790930336_1d943a49a0d1_gemini_generated_image_4j7xgt4j7xgt4j7x-3.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "0C_gGxHjY",
+        "label": "蓮藕 Lotus root",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790930376_0361109c3372_gemini_generated_image_4j7xgt4j7xgt4j7x-2.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "DxyXx3XfM",
+        "label": "韭王 Blanching chive",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790930447_1d943a49a0d1_gemini_generated_image_4j7xgt4j7xgt4j7x.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "FN5yrNrk8",
+        "label": "蕃茄 Tomato",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790930693_0361109c3372_gemini_generated_image_tnkfbutnkfbutnkf-2.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "0nRNY84n8",
+        "label": "粟米 Corn",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790930708_1d943a49a0d1_gemini_generated_image_tnkfbutnkfbutnkf.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "JOeF1hyCo",
+        "label": "唐芹 Chinese Celery",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790931807_0361109c3372_gemini_generated_image_y95a33y95a33y95a.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "ijFCd3ubC",
+        "label": "白菜 Chinese White Cabbage",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790931868_cdfc356103b3_gemini_generated_image_y95a33y95a33y95a-2.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "vV1CccCpx",
+        "label": "芥菜 Mustard leaf",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790931894_1d943a49a0d1_gemini_generated_image_y95a33y95a33y95a-3.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "--19x9TsJ",
+        "label": "枸杞 Matrimony vine",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790931996_cdfc356103b3_gemini_generated_image_y95a33y95a33y95a-4.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "z45VQQAbq",
+        "label": "小棠菜 Green Chinese Cabbage",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790932037_cdfc356103b3_gemini_generated_image_y95a33y95a33y95a-5.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "Pix6XmgOV",
+        "label": "油麥菜 Indian lettuce",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790932077_0361109c3372_gemini_generated_image_y95a33y95a33y95a-6.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "cTXYnhnRA",
+        "label": "皇帝菜 emperor vegetable",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790932104_1d943a49a0d1_gemini_generated_image_y95a33y95a33y95a-7.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "bzl3aK920",
+        "label": "莧菜 Chinese spinach",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790932178_0361109c3372_gemini_generated_image_y95a33y95a33y95a-8.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "uY8lB4acf",
+        "label": "馬莧菜 Wild amaranth",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790932213_0361109c3372_gemini_generated_image_y95a33y95a33y95a-9.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "oNWcSMEG9",
+        "label": "唐生菜 Chinese lettuce",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790932235_0361109c3372_gemini_generated_image_y95a33y95a33y95a-10.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "GhfEkP92m",
+        "label": "菠菜 spinach",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790933026_1d943a49a0d1_gemini_generated_image_w8sizlw8sizlw8si.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "xCgWqQUos",
+        "label": "冬瓜 Wax gourd",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790933071_cdfc356103b3_gemini_generated_image_w8sizlw8sizlw8si-2.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "fwV11cpPl",
+        "label": "佛手瓜 Chayote",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790933157_1d943a49a0d1_gemini_generated_image_w8sizlw8sizlw8si-3.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "lg7ySlc_U",
+        "label": "豌豆 Garden pea",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790933181_0361109c3372_gemini_generated_image_w8sizlw8sizlw8si-4.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "qjpsAUhsL",
+        "label": "絲瓜 angled luffa",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790933199_0361109c3372_gemini_generated_image_w8sizlw8sizlw8si-5.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "UCj1i99Fh",
+        "label": "豆角 Yard-long bean",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790933658_0361109c3372_gemini_generated_image_74o8xa74o8xa74o8.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "MjqfhIgXW",
+        "label": "翠玉瓜 Zucchini",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790933773_1d943a49a0d1_gemini_generated_image_hijceghijceghijc.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "p60PGeTrC",
+        "label": "四季豆 snap bean",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790933879_1d943a49a0d1_gemini_generated_image_wj5tu9wj5tu9wj5t.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "mVn93QGsel",
+        "label": "雞蛋 Egg",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791120624_cdfc356103b3_generated_image-61.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "D6R6qMOM0",
+        "label": "燈籠椒 Sweet pepper",
+        "image": "https://cdncboard.azureedge.net/cblob/_1790934838_cdfc356103b3_gemini_generated_image_bfgup8bfgup8bfgu-5.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "-3r18JOii",
+        "label": "豆腐 Tofu",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791120616_cdfc356103b3_generated_image-60.png",
+        "backgroundColor": "#fff176"
+      }
+    ]
+  },
+  {
+    "id": "6ac25c37a6bb41b8736618e0",
+    "name": "菇類",
+    "tiles": [
+      {
+        "id": "DFVhCBPXq",
+        "label": "鮮冬菇 Fresh Shiitake mushroom",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791122543_cdfc356103b3_gemini_generated_image_zh528nzh528nzh52.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "ZNFQW3KgQ",
+        "label": "蘑菇 Button mushroom",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791122563_0361109c3372_gemini_generated_image_w8sizlw8sizlw8si-9.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "DTLWu4rz8",
+        "label": "秀珍菇 Small oyster mushroom",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791122595_1d943a49a0d1_gemini_generated_image_bfgup8bfgup8bfgu.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "VVMC9CofA",
+        "label": "鮑魚菇 Abalone mushroom",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791122619_1d943a49a0d1_gemini_generated_image_7g2gqp7g2gqp7g2g.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "lM2Rh7Tqy",
+        "label": "金菇 Needle mushroom",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791122648_1d943a49a0d1_gemini_generated_image_bfgup8bfgup8bfgu-2.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "v_ASmFL6S",
+        "label": "雞腿菇 Shaggy mane",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791122673_1d943a49a0d1_gemini_generated_image_bfgup8bfgup8bfgu-3.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "c0hUWjKlJ",
+        "label": "草菇 Straw mushroom",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791122697_1d943a49a0d1_gemini_generated_image_bfgup8bfgup8bfgu-4.jpg",
+        "backgroundColor": "#fff176"
+      }
+    ]
+  },
+  {
+    "id": "6ac22772e9b569f4dc242523",
+    "name": "肉類",
+    "tiles": [
+      {
+        "id": "cHpYuynVk",
+        "label": "豬肉 Pork",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791116616_cdfc356103b3_generated_image-40.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "uumzwXTie",
+        "label": "豬扒 Pork chop",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109881_cdfc356103b3_generated_image-23.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "7rpSg4N4x",
+        "label": "腩排 Pork loinrib",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109900_0361109c3372_generated_image-24.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "oclb32QDh",
+        "label": "免治豬肉 Minced pork",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109920_cdfc356103b3_generated_image-25.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "fFlKLtEAl",
+        "label": "豬柳 Pork tenderloin",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109936_1d943a49a0d1_generated_image-26.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "uweiV7P-T",
+        "label": "豬腩肉 Pork belly",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109963_cdfc356103b3_generated_image-28.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "wBZcBZCq2",
+        "label": "梅頭 Pork collar butt",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791111890_cdfc356103b3_generated_image-29.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "pS2HQxglA",
+        "label": "排骨 Pork sparerib",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109944_0361109c3372_generated_image-27.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "7Byp3JZ8G",
+        "label": "豬𦟌 Pork shin",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791116699_0361109c3372_generated_image-42.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "EVuKXCmNI",
+        "label": "豬肋骨 Pork Lib",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791116811_0361109c3372_generated_image-47.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "laAQUaT3L",
+        "label": "豬軟骨 Pork cartilage",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791116851_1d943a49a0d1_gemini_generated_image_21v2ir21v2ir21v2.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "yMIdFsgEj",
+        "label": "豬踭 Pork shoulder",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791116759_cdfc356103b3_generated_image-44.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "LMiWqx-Sr",
+        "label": "豬頸肉 Pork cheek",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791116783_cdfc356103b3_generated_image-45.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "PUh2g2sHZ",
+        "label": "豬手 Pig hock",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791116831_1d943a49a0d1_gemini_generated_image_qy0l0rqy0l0rqy0l.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "s8urdFB8E",
+        "label": "瘦肉 Lean Pork",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791116795_cdfc356103b3_generated_image-46.png",
+        "backgroundColor": "#fff176"
+      }
+    ]
+  },
+  {
+    "id": "6ac25d97e9b569f4dc244fc0",
+    "name": "牛類",
+    "tiles": [
+      {
+        "id": "FhQsL15qm",
+        "label": "牛肉 Beef",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791122886_0361109c3372_generated_image-41.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "DfqCIDlXE",
+        "label": "牛尾 Ox tail",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791122910_0361109c3372_generated_image-30.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "OcIHC76pp",
+        "label": "牛扒 Beef Steak",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791122932_1d943a49a0d1_generated_image-31.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "xuzFJTrhf",
+        "label": "牛𦟌 Beef Shin",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791122969_cdfc356103b3_generated_image-33.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "6kJs6nhPi",
+        "label": "肥牛肉 Marble beef",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791123028_0361109c3372_gemini_generated_image_xa2l64xa2l64xa2l.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "3XU9tc1l7",
+        "label": "牛腩 Beef flank",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791123066_0361109c3372_gemini_generated_image_o59upro59upro59u.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "r-9Lhlfpq",
+        "label": "牛仔骨 Veal rib",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791123098_0361109c3372_gemini_generated_image_k3jddmk3jddmk3jd.jpg",
+        "backgroundColor": "#fff176"
+      }
+    ]
+  },
+  {
+    "id": "6ac26203a6bb41b873661ec5",
+    "name": "雞",
+    "tiles": [
+      {
+        "id": "jW_blTITb",
+        "label": "雞扒 Chicken steak",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791124026_1d943a49a0d1_generated_image-36.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "bKgj3qzKy",
+        "label": "雞腿 Chicken leg",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791124048_0361109c3372_generated_image-37.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "ajgQ6lqHw0",
+        "label": "雞鎚 Drumstick",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791124063_1d943a49a0d1_generated_image-38.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "Nx3EBR7yO",
+        "label": "雞翼 Chicken wing",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791124096_1d943a49a0d1_generated_image-39.png",
+        "backgroundColor": "#fff176"
+      }
+    ]
+  },
+  {
+    "id": "6ac25eba9707f685afb8daeb",
+    "name": "羊",
+    "tiles": [
+      {
+        "id": "jkxZZMN0k",
+        "label": "羊肉 Mutton",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791123154_0361109c3372_generated_image-32.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "FkRxTrXbu",
+        "label": "羊扒 Mutton rack",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791123193_0361109c3372_generated_image-34.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "3cd0A--9Q",
+        "label": "羊腩 Mutton flank",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791123179_cdfc356103b3_gemini_generated_image_7gyj2b7gyj2b7gyj.jpg",
+        "backgroundColor": "#fff176"
+      }
+    ]
+  },
+  {
+    "id": "6ac22843e9b569f4dc2425bb",
+    "name": "海鮮與魚類",
+    "tiles": [
+      {
+        "id": "88DT2WHz1",
+        "label": "木棉 Bigeye",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109366_cdfc356103b3_generated_image-2.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "bIRM6xuJ_",
+        "label": "紅衫 Golden thread",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109387_1d943a49a0d1_generated_image-6.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "j4c_4wBhbt",
+        "label": "桂花魚 Mandarin fish",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109408_1d943a49a0d1_generated_image-7.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "Yi1yfl8cm",
+        "label": "烏頭 Grey mullet",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109431_0361109c3372_generated_image-8.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "Ky9ECihI8",
+        "label": "黃花魚 Yellow croaker",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109445_0361109c3372_generated_image-9.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "Ey31Ez9z8",
+        "label": "鯇魚 Grass carp",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109481_0361109c3372_generated_image-5.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "jjieNG9hJ",
+        "label": "花蝦 Striped prawn",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109498_cdfc356103b3_generated_image.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "7BKZgELhS",
+        "label": "白飯魚 Noodlefish",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109519_0361109c3372_generated_image-10.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "MiB30jESd",
+        "label": "白鱔 Japanese eel",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109549_cdfc356103b3_generated_image-11.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "CK2P0a9hA",
+        "label": "老虎斑 Brown-marbled grouper",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109582_0361109c3372_generated_image-12.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "Jk_9JV8Ez",
+        "label": "衫斑 Camouflage grouper",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109611_cdfc356103b3_generated_image-22.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "oERQQGj2k",
+        "label": "䱽魚 Pomfret",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109633_0361109c3372_generated_image-13.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "rjWnZ9bMJ",
+        "label": "撻沙 Tonguesole",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109709_1d943a49a0d1_generated_image-14.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "jEI6kN7tf",
+        "label": "絞鯪魚肉 Minced mud carp",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109757_1d943a49a0d1_generated_image-15.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "9IvfI9QOd",
+        "label": "紅蟹 Red crab",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109770_cdfc356103b3_generated_image-16.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "LhLw-ViB6",
+        "label": "三點蟹 Three-spotted crab",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109782_0361109c3372_generated_image-17.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "B31y4u9J7",
+        "label": "花蟹 Flower crab",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109820_cdfc356103b3_generated_image-20.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "b3u3a1FKdy",
+        "label": "瀨尿蝦 Mantis shrimp",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109808_cdfc356103b3_generated_image-19.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "A5dhWLNWp",
+        "label": "基圍蝦 Greasyback shrimp",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109829_0361109c3372_generated_image-21.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "6Exq6zwPwX",
+        "label": "龍蝦 Lobster",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791109792_1d943a49a0d1_generated_image-18.png",
+        "backgroundColor": "#fff176"
+      }
+    ]
+  },
+  {
+    "id": "6ac24964e9b569f4dc243e5a",
+    "name": "燒味",
+    "tiles": [
+      {
+        "id": "_1xT-LSwY",
+        "label": "叉燒 Barbecued pork",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791118405_0361109c3372_gemini_generated_image_fqbwxofqbwxofqbw.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "feiW3fkeF",
+        "label": "燒肉 Roasted pork",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791118474_1d943a49a0d1_gemini_generated_image_7ifkjh7ifkjh7ifk.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "Ec-78f3Jq",
+        "label": "燒鵝 Roasted goose",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791118518_0361109c3372_gemini_generated_image_g450swg450swg450.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "KoqqUF9JU",
+        "label": "白切雞 Poached Chicken",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791118568_cdfc356103b3_gemini_generated_image_ukjtdukjtdukjtdu.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "_AueV07i2",
+        "label": "燒乳豬 Roasted suckling pig",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791118657_cdfc356103b3_gemini_generated_image_sqkhnxsqkhnxsqkh.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "rb5Jodjih",
+        "label": "滷水雞翼 Marinated chicken wing",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791118813_cdfc356103b3_gemini_generated_image_pi4rlipi4rlipi4r.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "POf3kRHCr",
+        "label": "燒乳鴿 Roasted pigeon",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791118773_1d943a49a0d1_gemini_generated_image_smzcajsmzcajsmzc.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "JV2K3tGPA",
+        "label": "滷水鵝 Marinated goose",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791118739_cdfc356103b3_gemini_generated_image_8lu8s8lu8s8lu8s8.jpg",
+        "backgroundColor": "#fff176"
+      }
+    ]
+  },
+  {
+    "id": "6ac24888e9b569f4dc243cec",
+    "name": "生果",
+    "tiles": [
+      {
+        "id": "bTSaNUVqU",
+        "label": "士多啤梨 Strawberry",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791117471_cdfc356103b3_gemini_generated_image_w3snfhw3snfhw3sn-9.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "ABmLudH4y",
+        "label": "奇異果 Kiwi",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791117493_cdfc356103b3_gemini_generated_image_w3snfhw3snfhw3sn-8.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "WwwdcIupi",
+        "label": "青蘋果 Green Apple",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791117516_1d943a49a0d1_gemini_generated_image_w3snfhw3snfhw3sn-7.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "zGtSCB4Te",
+        "label": "芒果 Mango",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791117529_1d943a49a0d1_gemini_generated_image_w3snfhw3snfhw3sn-6.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "wolMQq-Ny",
+        "label": "紅桑子 Rasberry",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791117547_0361109c3372_gemini_generated_image_w3snfhw3snfhw3sn-5.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "DYkqgc4df",
+        "label": "提子 Grape",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791117558_1d943a49a0d1_gemini_generated_image_w3snfhw3snfhw3sn-4.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "rmTtSD1Fy",
+        "label": "桃 Peach",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791117571_cdfc356103b3_gemini_generated_image_w3snfhw3snfhw3sn-3.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "8Y0rH92pe",
+        "label": "香蕉 Banana",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791117586_0361109c3372_gemini_generated_image_w3snfhw3snfhw3sn-2.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "nSHQwArAVT",
+        "label": "黑莓 Blackberry",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791117598_cdfc356103b3_gemini_generated_image_w3snfhw3snfhw3sn.jpg",
+        "backgroundColor": "#fff176"
+      }
+    ]
+  },
+  {
+    "id": "6ac24de9e9b569f4dc244215",
+    "name": "冷凍食品",
+    "tiles": [
+      {
+        "id": "ISiMvjErE",
+        "label": "蟹柳 Imitation crab meat",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791119686_0361109c3372_generated_image-48.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "Y1gqenAIj",
+        "label": "墨魚丸 cuttlefish ball",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791119819_cdfc356103b3_generated_image-49.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "BhNu_Nmek",
+        "label": "火腿 ham",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791119831_cdfc356103b3_generated_image-50.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "4HTQ4AIMB",
+        "label": "蝦丸 Shrimp ball",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791119845_cdfc356103b3_generated_image-51.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "iRJZTDRlS",
+        "label": "豬肉丸 Pork ball",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791120018_1d943a49a0d1_generated_image-52.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "0e5YCKUOj",
+        "label": "龍蝦丸 lobster ball",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791120033_1d943a49a0d1_generated_image-53.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "OJd_Rgyxt",
+        "label": "銀鱈魚 Black cod",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791120056_1d943a49a0d1_generated_image-54.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "xescnWtoK",
+        "label": "牛丸 beef ball",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791120069_cdfc356103b3_img_1793__58450_zoom.jpg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "5A7eRMt2K",
+        "label": "魚皮餃 fish skin dumpling",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791120084_1d943a49a0d1_generated_image-55.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "oF5BAcbxPB",
+        "label": "三文魚 salmon",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791120094_1d943a49a0d1_generated_image-56.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "ox1F_y7d7",
+        "label": "魚丸 fish ball",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791120109_cdfc356103b3_images-2.jpeg",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "FflG0C6tG",
+        "label": "雞肉腸 Chicken sausage",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791120126_1d943a49a0d1_generated_image-57.png",
+        "backgroundColor": "#fff176"
+      },
+      {
+        "id": "lXQfMkr6C",
+        "label": "脆皮腸 Crispy sausage",
+        "image": "https://cdncboard.azureedge.net/cblob/_1791120139_1d943a49a0d1_generated_image-58.png",
+        "backgroundColor": "#fff176"
+      }
+    ]
+  }
+];
+
+    function cloneData(obj) {
+      return JSON.parse(JSON.stringify(obj));
+    }
+
+    // State Variables
+    let boards = [];
+    let currentBoardId = "";
+    let isEditorMode = false;
+    let sentenceItems = [];
+    let navigationHistory = [];
+    let speechSettings = {
+      rate: 0.8,
+      pitch: 1.0,
+      pause: 450
+    };
+    let currentGridMode = 'grid-9';
+    let isSpeaking = false;
+    let draggedTileId = null;
+    let qrcodeInstance = null;
+
+    // Cross-tab broadcast channel for instant multi-tab sync
+    let syncBroadcast = null;
+    try {
+      if ('BroadcastChannel' in window) {
+        syncBroadcast = new BroadcastChannel('aac_market_sync_channel');
+        syncBroadcast.onmessage = (event) => {
+          if (event && event.data && event.data.type === 'SYNC_BOARDS') {
+            boards = event.data.boards;
+            renderCurrentBoard();
+            showToast('✅ 已即時同步其他視窗的修改！');
+          }
+        };
+      }
+    } catch (e) {}
+
+    // --- DELTA ENCODING / DECODING ENGINE ---
+    // Computes small delta diff against ORIGINAL_BOARDS_DATA for super compact share links & QR codes
+    function computeDelta(current, original) {
+      try {
+        const origMap = {};
+        original.forEach(b => origMap[b.id] = b);
+
+        const delta = {};
+        // 1. New boards
+        const newBoards = current.filter(b => !origMap[b.id]);
+        if (newBoards.length > 0) delta.nb = newBoards;
+
+        // 2. Modified existing boards
+        const modBoards = {};
+        current.forEach(b => {
+          if (origMap[b.id]) {
+            const ob = origMap[b.id];
+            const bDiff = {};
+            if (b.name !== ob.name) bDiff.n = b.name;
+            if (Boolean(b.isRoot) !== Boolean(ob.isRoot)) bDiff.r = Boolean(b.isRoot);
+
+            const currTiles = b.tiles || [];
+            const origTiles = ob.tiles || [];
+            const origTileMap = {};
+            origTiles.forEach(t => origTileMap[t.id] = t);
+            const currTileIds = new Set(currTiles.map(t => t.id));
+
+            // Added tiles
+            const added = currTiles.filter(t => !origTileMap[t.id]);
+            if (added.length > 0) bDiff.a = added;
+
+            // Updated existing tiles
+            const updated = currTiles.filter(t => origTileMap[t.id] && JSON.stringify(t) !== JSON.stringify(origTileMap[t.id]));
+            if (updated.length > 0) bDiff.u = updated;
+
+            // Deleted tile IDs
+            const deleted = origTiles.filter(t => !currTileIds.has(t.id)).map(t => t.id);
+            if (deleted.length > 0) bDiff.d = deleted;
+
+            // Order if changed
+            const currOrder = currTiles.map(t => t.id);
+            const origOrder = origTiles.map(t => t.id);
+            if (JSON.stringify(currOrder) !== JSON.stringify(origOrder)) {
+              bDiff.o = currOrder;
+            }
+
+            if (Object.keys(bDiff).length > 0) {
+              modBoards[b.id] = bDiff;
+            }
+          }
+        });
+
+        if (Object.keys(modBoards).length > 0) delta.mb = modBoards;
+
+        // 3. Settings if modified
+        if (speechSettings.rate !== 0.8 || speechSettings.pitch !== 1.0 || speechSettings.pause !== 450) {
+          delta.st = speechSettings;
+        }
+
+        return delta;
+      } catch (err) {
+        console.warn('Delta compute error:', err);
+        return null;
+      }
+    }
+
+    function applyDelta(original, delta) {
+      try {
+        const res = cloneData(original);
+        const boardMap = {};
+        res.forEach(b => boardMap[b.id] = b);
+
+        if (delta.nb && Array.isArray(delta.nb)) {
+          delta.nb.forEach(b => {
+            if (!boardMap[b.id]) {
+              res.push(b);
+              boardMap[b.id] = b;
+            }
+          });
+        }
+
+        if (delta.mb) {
+          Object.keys(delta.mb).forEach(bId => {
+            if (boardMap[bId]) {
+              const b = boardMap[bId];
+              const diff = delta.mb[bId];
+              if (diff.n !== undefined) b.name = diff.n;
+              if (diff.r !== undefined) b.isRoot = diff.r;
+
+              if (diff.d && Array.isArray(diff.d)) {
+                const delSet = new Set(diff.d);
+                b.tiles = (b.tiles || []).filter(t => !delSet.has(t.id));
+              }
+
+              if (diff.u && Array.isArray(diff.u)) {
+                const uMap = {};
+                diff.u.forEach(t => uMap[t.id] = t);
+                b.tiles = (b.tiles || []).map(t => uMap[t.id] || t);
+              }
+
+              if (diff.a && Array.isArray(diff.a)) {
+                const existing = new Set((b.tiles || []).map(t => t.id));
+                diff.a.forEach(t => {
+                  if (!existing.has(t.id)) b.tiles.push(t);
+                });
+              }
+
+              if (diff.o && Array.isArray(diff.o)) {
+                const orderMap = {};
+                diff.o.forEach((id, idx) => orderMap[id] = idx);
+                b.tiles.sort((t1, t2) => (orderMap[t1.id] ?? 9999) - (orderMap[t2.id] ?? 9999));
+              }
+            }
+          });
+        }
+
+        if (delta.st) {
+          if (delta.st.rate) speechSettings.rate = delta.st.rate;
+          if (delta.st.pitch) speechSettings.pitch = delta.st.pitch;
+          if (delta.st.pause) speechSettings.pause = delta.st.pause;
+        }
+
+        return res;
+      } catch (err) {
+        console.warn('Delta apply error:', err);
+        return null;
+      }
+    }
+
+    // Exportable compact sync string
+    function generateSyncCodeString() {
+      try {
+        const delta = computeDelta(boards, ORIGINAL_BOARDS_DATA);
+        const payload = { v: 3, d: delta, t: Date.now() };
+        const str = JSON.stringify(payload);
+        if (typeof LZString !== 'undefined') {
+          return 'AAC-' + LZString.compressToEncodedURIComponent(str);
+        }
+        return 'AAC-' + btoa(unescape(encodeURIComponent(str)));
+      } catch (e) {
+        return JSON.stringify(boards);
+      }
+    }
+
+    function applySyncCodeString(rawCode) {
+      if (!rawCode) return false;
+      let clean = rawCode.trim();
+      if (clean.startsWith('AAC-')) clean = clean.substring(4);
+
+      try {
+        let jsonStr = null;
+        if (typeof LZString !== 'undefined') {
+          jsonStr = LZString.decompressFromEncodedURIComponent(clean);
+        }
+        if (!jsonStr) {
+          jsonStr = decodeURIComponent(escape(atob(clean)));
+        }
+
+        if (jsonStr) {
+          const payload = JSON.parse(jsonStr);
+          if (payload && payload.d) {
+            const reconstructed = applyDelta(ORIGINAL_BOARDS_DATA, payload.d);
+            if (reconstructed && Array.isArray(reconstructed) && reconstructed.length > 0) {
+              boards = reconstructed;
+              saveData();
+              renderCurrentBoard();
+              showToast('✅ 成功從代碼載入並同步自訂設定！');
+              return true;
+            }
+          } else if (Array.isArray(payload)) {
+            boards = payload;
+            saveData();
+            renderCurrentBoard();
+            showToast('✅ 成功載入自訂設定！');
+            return true;
+          }
+        }
+      } catch (err) {
+        console.warn('Sync code parse error:', err);
+      }
+
+      // Fallback try raw JSON parse
+      try {
+        const parsed = JSON.parse(rawCode);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          boards = parsed;
+          saveData();
+          renderCurrentBoard();
+          showToast('✅ 成功載入自訂設定！');
+          return true;
+        }
+      } catch (e) {}
+
+      return false;
+    }
+
+    // Get Base URL for sharing
+    function getShareableBaseUrl() {
+      const customHost = localStorage.getItem('aac_custom_host_url');
+      if (customHost) return customHost.split('#')[0];
+
+      const href = window.location.href;
+      if (!href || href.startsWith('about:') || href.startsWith('blob:') || href.startsWith('data:')) {
+        return 'https://example.com/aac_market.html';
+      }
+      return href.split('#')[0].split('?')[0];
+    }
+
+    // Automatically update browser address bar hash
+    function autoUpdateUrlHash() {
+      try {
+        const delta = computeDelta(boards, ORIGINAL_BOARDS_DATA);
+        if (delta && (delta.nb || delta.mb || delta.st)) {
+          const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(delta));
+          if (compressed) {
+            const newHash = '#delta=' + compressed;
+            if (window.history && window.history.replaceState) {
+              window.history.replaceState(null, '', newHash);
+            } else {
+              window.location.hash = newHash;
+            }
+          }
+        } else {
+          if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          }
+        }
+      } catch (e) {}
+
+      // Broadcast to other tabs
+      if (syncBroadcast) {
+        syncBroadcast.postMessage({ type: 'SYNC_BOARDS', boards: boards });
+      }
+    }
+
+    // Check and load state from URL Hash
+    function loadFromUrlHash() {
+      try {
+        const hash = window.location.hash;
+        if (!hash) return false;
+
+        // 1. Delta in Hash (#delta=...)
+        const deltaMatch = hash.match(/[#&]delta=([^&]+)/);
+        if (deltaMatch && deltaMatch[1]) {
+          const decompressed = LZString.decompressFromEncodedURIComponent(deltaMatch[1]);
+          if (decompressed) {
+            const delta = JSON.parse(decompressed);
+            const reconstructed = applyDelta(ORIGINAL_BOARDS_DATA, delta);
+            if (reconstructed && Array.isArray(reconstructed) && reconstructed.length > 0) {
+              boards = reconstructed;
+              saveData();
+              showToast('✅ 已從專屬連結成功同步自訂設定！');
+              return true;
+            }
+          }
+        }
+
+        // 2. Full State in Hash (#data=...)
+        const dataMatch = hash.match(/[#&](?:data|state)=([^&]+)/);
+        if (dataMatch && dataMatch[1]) {
+          const decompressed = LZString.decompressFromEncodedURIComponent(dataMatch[1]);
+          if (decompressed) {
+            const loaded = JSON.parse(decompressed);
+            if (Array.isArray(loaded) && loaded.length > 0) {
+              boards = loaded;
+              saveData();
+              showToast('✅ 已從分享連結成功載入自訂設定！');
+              return true;
+            }
+          }
+        }
+
+        // 3. Cloud Room in Hash (#room=...)
+        const roomMatch = hash.match(/[#&]room=([^&]+)/);
+        if (roomMatch && roomMatch[1]) {
+          const roomCode = decodeURIComponent(roomMatch[1]).toUpperCase();
+          document.getElementById('input-room-code').value = roomCode;
+          setTimeout(() => downloadFromCloud(roomCode, true), 300);
+          return true;
+        }
+      } catch (e) {
+        console.warn('Hash load error:', e);
+      }
+      return false;
+    }
+
+    // Initialize Boards
+    function initData() {
+      const loadedFromHash = loadFromUrlHash();
+      if (!loadedFromHash) {
+        try {
+          const saved = localStorage.getItem('aac_market_boards_v3');
+          if (saved) {
+            boards = JSON.parse(saved);
+          } else {
+            boards = cloneData(ORIGINAL_BOARDS_DATA);
+          }
+        } catch (e) {
+          boards = cloneData(ORIGINAL_BOARDS_DATA);
+        }
+      }
+
+      const rootBoard = boards.find(b => b.isRoot) || boards[0];
+      currentBoardId = rootBoard.id;
+      navigationHistory = [currentBoardId];
+
+      setTimeout(autoUpdateUrlHash, 400);
+    }
+
+    function saveData() {
+      try {
+        localStorage.setItem('aac_market_boards_v3', JSON.stringify(boards));
+      } catch (e) {
+        console.warn('LocalStorage save failed:', e);
+      }
+      autoUpdateUrlHash();
+    }
+
+    // Listen for storage events (multi-window sync)
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'aac_market_boards_v3') {
+        try {
+          const newBoards = JSON.parse(e.newValue);
+          if (Array.isArray(newBoards) && newBoards.length > 0) {
+            boards = newBoards;
+            renderCurrentBoard();
+            showToast('已即時同步其他視窗的修改');
+          }
+        } catch (err) {}
+      }
+    });
+
+    // Bilingual Label Parser
+    function parseBilingual(label) {
+      if (!label) return { cantonese: '', english: '' };
+      const cjkMatches = label.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]+/g);
+      const engMatches = label.match(/[A-Za-z][A-Za-z0-9\s\-\']*/g);
+      const cantonese = cjkMatches ? cjkMatches.join(' ') : label;
+      const english = engMatches ? engMatches.join(' ').trim() : '';
+      return { cantonese, english };
+    }
+
+    // Speech Synthesis
+    let cantoneseVoice = null;
+    let englishVoice = null;
+    let audioContext = null;
+
+    function initVoices() {
+      if (!('speechSynthesis' in window)) return;
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices || voices.length === 0) return;
+
+      cantoneseVoice = voices.find(v => 
+        v.lang === 'zh-HK' || 
+        v.lang.toLowerCase() === 'yue-hant-hk' || 
+        v.name.includes('Hong Kong') || 
+        v.name.includes('Cantonese') || 
+        v.name.includes('Sin-ji') ||
+        v.name.includes('Danny')
+      );
+      if (!cantoneseVoice) {
+        cantoneseVoice = voices.find(v => v.lang.startsWith('zh-HK') || v.lang.startsWith('yue'));
+      }
+      if (!cantoneseVoice) {
+        cantoneseVoice = voices.find(v => v.lang.startsWith('zh'));
+      }
+
+      englishVoice = voices.find(v => v.lang === 'en-HK') || 
+                     voices.find(v => v.lang === 'en-US') || 
+                     voices.find(v => v.lang === 'en-GB') || 
+                     voices.find(v => v.lang.startsWith('en'));
+
+      const cantoneseStatusElem = document.getElementById('voice-cantonese-status');
+      const englishStatusElem = document.getElementById('voice-english-status');
+      if (cantoneseStatusElem) {
+        cantoneseStatusElem.innerHTML = cantoneseVoice 
+          ? `✅ <strong>${cantoneseVoice.name}</strong> (${cantoneseVoice.lang})` 
+          : '⚠️ 未能找到專屬粵語語音，將使用通用中文語音';
+      }
+      if (englishStatusElem) {
+        englishStatusElem.innerHTML = englishVoice 
+          ? `✅ <strong>${englishVoice.name}</strong> (${englishVoice.lang})` 
+          : '⚠️ 使用預設英語語音';
+      }
+    }
+
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = initVoices;
+      initVoices();
+    }
+
+    function playTactileChime() {
+      try {
+        if (!audioContext) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) audioContext = new AudioContextClass();
+        }
+        if (audioContext && audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+        if (audioContext) {
+          const osc = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(523.25, audioContext.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(659.25, audioContext.currentTime + 0.08);
+          gain.gain.setValueAtTime(0.08, audioContext.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.12);
+          osc.connect(gain);
+          gain.connect(audioContext.destination);
+          osc.start();
+          osc.stop(audioContext.currentTime + 0.12);
+        }
+      } catch (e) {}
+    }
+
+    function speakBilingual(cantoneseText, englishText, onFinishCallback) {
+      if (!('speechSynthesis' in window)) {
+        if (onFinishCallback) onFinishCallback();
+        return;
+      }
+
+      window.speechSynthesis.cancel();
+      isSpeaking = true;
+
+      const cText = cantoneseText ? cantoneseText.trim() : '';
+      const eText = englishText ? englishText.trim() : '';
+
+      if (!cText && !eText) {
+        isSpeaking = false;
+        if (onFinishCallback) onFinishCallback();
+        return;
+      }
+
+      if (!cantoneseVoice || !englishVoice) {
+        initVoices();
+      }
+
+      if (cText) {
+        const uttC = new SpeechSynthesisUtterance(cText);
+        uttC.lang = (cantoneseVoice && cantoneseVoice.lang) || 'zh-HK';
+        if (cantoneseVoice) uttC.voice = cantoneseVoice;
+        uttC.rate = speechSettings.rate;
+        uttC.pitch = speechSettings.pitch;
+
+        uttC.onend = function() {
+          if (eText) {
+            setTimeout(() => {
+              speakEnglishPart(eText, onFinishCallback);
+            }, speechSettings.pause);
+          } else {
+            isSpeaking = false;
+            if (onFinishCallback) onFinishCallback();
+          }
+        };
+        uttC.onerror = function() {
+          if (eText) {
+            speakEnglishPart(eText, onFinishCallback);
+          } else {
+            isSpeaking = false;
+            if (onFinishCallback) onFinishCallback();
+          }
+        };
+
+        window.speechSynthesis.speak(uttC);
+      } else if (eText) {
+        speakEnglishPart(eText, onFinishCallback);
+      }
+    }
+
+    function speakEnglishPart(eText, onFinishCallback) {
+      const uttE = new SpeechSynthesisUtterance(eText);
+      uttE.lang = (englishVoice && englishVoice.lang) || 'en-US';
+      if (englishVoice) uttE.voice = englishVoice;
+      uttE.rate = speechSettings.rate;
+      uttE.pitch = speechSettings.pitch;
+
+      uttE.onend = function() {
+        isSpeaking = false;
+        if (onFinishCallback) onFinishCallback();
+      };
+      uttE.onerror = function() {
+        isSpeaking = false;
+        if (onFinishCallback) onFinishCallback();
+      };
+
+      window.speechSynthesis.speak(uttE);
+    }
+
+    function playTileSound(tile) {
+      playTactileChime();
+      const parsed = parseBilingual(tile.label);
+      speakBilingual(parsed.cantonese, parsed.english);
+    }
+
+    function playSentenceSound() {
+      if (sentenceItems.length === 0) {
+        showToast('請先點擊圖卡加入句子 (Please tap cards first)');
+        return;
+      }
+
+      const speakBtn = document.getElementById('btn-sentence-speak');
+      const sentenceBar = document.getElementById('sentence-items-container');
+      
+      speakBtn.classList.add('speaking-pulse');
+      sentenceBar.classList.add('ring-2', 'ring-emerald-500', 'bg-emerald-50/50');
+
+      const cWords = [];
+      const eWords = [];
+
+      sentenceItems.forEach(item => {
+        const parsed = parseBilingual(item.label);
+        if (parsed.cantonese) cWords.push(parsed.cantonese);
+        if (parsed.english) eWords.push(parsed.english);
+      });
+
+      const fullCantonese = cWords.join('，');
+      const fullEnglish = eWords.join(', ');
+
+      speakBilingual(fullCantonese, fullEnglish, () => {
+        speakBtn.classList.remove('speaking-pulse');
+        sentenceBar.classList.remove('ring-2', 'ring-emerald-500', 'bg-emerald-50/50');
+      });
+    }
+
+    // Board & Tiles Rendering
+    function getCurrentBoard() {
+      return boards.find(b => b.id === currentBoardId) || boards[0];
+    }
+
+    function applyGridColumns() {
+      const grid = document.getElementById('tiles-grid');
+      grid.className = 'grid gap-4 sm:gap-5 pb-12 transition-all';
+      
+      const currentBoard = getCurrentBoard();
+      if (currentBoard.id === 'board_home_root') {
+        grid.classList.add('grid-cols-1', 'sm:grid-cols-2', 'max-w-4xl', 'mx-auto');
+        return;
+      }
+
+      if (currentGridMode === 'grid-9') {
+        grid.classList.add('grid-cols-1', 'sm:grid-cols-2', 'md:grid-cols-3');
+      } else if (currentGridMode === 'grid-6') {
+        grid.classList.add('grid-cols-1', 'sm:grid-cols-2', 'md:grid-cols-3');
+      } else if (currentGridMode === 'grid-12') {
+        grid.classList.add('grid-cols-2', 'sm:grid-cols-3', 'md:grid-cols-4');
+      } else {
+        grid.classList.add('grid-cols-2', 'sm:grid-cols-3', 'md:grid-cols-4', 'lg:grid-cols-5');
+      }
+    }
+
+    function renderCurrentBoard() {
+      const board = getCurrentBoard();
+      if (!board) return;
+
+      const isHome = (board.isRoot || board.id === 'board_home_root');
+      document.getElementById('current-board-title').textContent = isHome ? '街市買餸' : board.name;
+      document.getElementById('board-tile-count').textContent = `${board.tiles ? board.tiles.length : 0} 項`;
+
+      const btnBack = document.getElementById('btn-nav-back');
+      btnBack.disabled = (navigationHistory.length <= 1);
+
+      applyGridColumns();
+
+      const grid = document.getElementById('tiles-grid');
+      grid.innerHTML = '';
+
+      if (!board.tiles || board.tiles.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full py-16 text-center text-slate-400 bg-white rounded-2xl border-2 border-dashed border-slate-200">
+            <div class="text-5xl mb-2">📂</div>
+            <p class="text-lg font-black text-slate-700">此資料夾內暫無卡片</p>
+            <p class="text-xs text-slate-400 mt-1">切換至「言語治療師模式」可新增項目或將項目拖入此處</p>
+          </div>
+        `;
+        return;
+      }
+
+      const isRootHome = (board.id === 'board_home_root');
+
+      board.tiles.forEach((tile, index) => {
+        const card = createTileElement(tile, index, board, isRootHome);
+        grid.appendChild(card);
+      });
+    }
+
+    function createTileElement(tile, index, board, isBigFolder = false) {
+      const card = document.createElement('div');
+      
+      if (isBigFolder) {
+        card.className = `aac-card relative rounded-3xl border-[4px] border-blue-300 bg-white shadow-sm hover:shadow-xl cursor-pointer flex flex-col justify-between overflow-hidden select-none p-5 sm:p-6 transition-all min-h-[240px] sm:min-h-[280px]`;
+      } else {
+        card.className = `aac-card relative rounded-2xl border-[3px] border-[#bfdbfe] bg-white shadow-xs hover:shadow-md cursor-pointer flex flex-col justify-between overflow-hidden select-none p-3 transition-all min-h-[195px] sm:min-h-[215px]`;
+      }
+
+      card.dataset.tileId = tile.id;
+      const isFolder = (tile.type === 'folder');
+      const parsed = parseBilingual(tile.label);
+
+      if (isEditorMode) {
+        card.setAttribute('draggable', 'true');
+        card.ondragstart = (e) => {
+          draggedTileId = tile.id;
+          e.dataTransfer.setData('text/plain', tile.id);
+          card.classList.add('opacity-50');
+        };
+        card.ondragend = () => {
+          card.classList.remove('opacity-50');
+          draggedTileId = null;
+        };
+
+        if (isFolder && tile.loadBoard) {
+          card.ondragover = (e) => {
+            e.preventDefault();
+            if (draggedTileId && draggedTileId !== tile.id) {
+              card.classList.add('drag-over-folder');
+            }
+          };
+          card.ondragleave = () => {
+            card.classList.remove('drag-over-folder');
+          };
+          card.ondrop = (e) => {
+            e.preventDefault();
+            card.classList.remove('drag-over-folder');
+            const droppedId = e.dataTransfer.getData('text/plain');
+            if (droppedId && droppedId !== tile.id) {
+              moveTileToBoard(droppedId, tile.loadBoard, tile.label);
+            }
+          };
+        } else {
+          card.ondragover = (e) => {
+            e.preventDefault();
+            if (draggedTileId && draggedTileId !== tile.id) {
+              card.classList.add('drag-over-reorder');
+            }
+          };
+          card.ondragleave = () => {
+            card.classList.remove('drag-over-reorder');
+          };
+          card.ondrop = (e) => {
+            e.preventDefault();
+            card.classList.remove('drag-over-reorder');
+            const droppedId = e.dataTransfer.getData('text/plain');
+            if (droppedId && droppedId !== tile.id) {
+              reorderTileInBoard(droppedId, tile.id);
+            }
+          };
+        }
+      }
+
+      let badgeHtml = '';
+      if (isFolder) {
+        badgeHtml = `
+          <div class="flex items-center justify-between w-full">
+            <span class="inline-flex items-center gap-1 bg-[#1d4ed8] text-white text-[11px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full shadow-xs">
+              📁 分類
+            </span>
+          </div>
+        `;
+      } else {
+        badgeHtml = `
+          <div class="flex items-center justify-between w-full">
+            <span class="inline-flex items-center gap-1 bg-amber-500 text-white text-[11px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full shadow-xs">
+              🍽️ 項目
+            </span>
+          </div>
+        `;
+      }
+
+      let editorActionsHtml = '';
+      if (isEditorMode) {
+        editorActionsHtml = `
+          <div class="absolute top-2 right-2 flex items-center gap-1 z-10">
+            <button type="button" class="btn-edit-tile w-7 h-7 rounded-lg bg-white/95 hover:bg-white text-slate-800 shadow font-bold text-xs flex items-center justify-center border border-slate-300" title="編輯此卡片 Edit">
+              ✏️
+            </button>
+            <button type="button" class="btn-duplicate-tile w-7 h-7 rounded-lg bg-white/95 hover:bg-white text-slate-800 shadow font-bold text-xs flex items-center justify-center border border-slate-300" title="複製此卡片 Duplicate">
+              📋
+            </button>
+            <button type="button" class="btn-delete-tile w-7 h-7 rounded-lg bg-rose-50/95 hover:bg-rose-100 text-rose-700 shadow font-bold text-xs flex items-center justify-center border border-rose-200" title="刪除此卡片 Delete">
+              🗑️
+            </button>
+          </div>
+        `;
+      }
+
+      let imageHtml = '';
+      const imgHeightClass = isBigFolder ? 'h-36 sm:h-44' : 'h-24 sm:h-28';
+      
+      if (tile.image && tile.image.trim() !== '') {
+        imageHtml = `
+          <div class="w-full ${imgHeightClass} flex items-center justify-center overflow-hidden my-1">
+            <img src="${tile.image}" alt="${tile.label}" class="max-h-full max-w-full object-contain" onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='<span class=\'text-4xl\'>🍽️</span>';" />
+          </div>
+        `;
+      } else {
+        let fallbackIcon = tile.icon || '🍽️';
+        if (tile.label.includes('蒸')) fallbackIcon = '♨️';
+        else if (tile.label.includes('烹飪')) fallbackIcon = '🍳';
+        else if (isFolder) fallbackIcon = '📁';
+        
+        imageHtml = `
+          <div class="w-full ${imgHeightClass} flex items-center justify-center overflow-hidden my-1">
+            <span class="${isBigFolder ? 'text-6xl sm:text-7xl' : 'text-4xl sm:text-5xl'}">${fallbackIcon}</span>
+          </div>
+        `;
+      }
+
+      let subDescHtml = '';
+      if (isBigFolder && tile.sub) {
+        subDescHtml = `<div class="text-xs text-slate-400 mt-1 font-medium hidden sm:block">${tile.sub}</div>`;
+      }
+
+      const labelHtml = `
+        <div class="text-center pt-2 border-t border-slate-100 w-full leading-tight">
+          <div class="${isBigFolder ? 'text-xl sm:text-2xl font-black text-blue-900' : 'text-base sm:text-lg font-black text-slate-900'} tracking-tight">${parsed.cantonese || tile.label}</div>
+          ${parsed.english ? `<div class="${isBigFolder ? 'text-sm sm:text-base font-semibold text-blue-600' : 'text-xs sm:text-sm font-medium text-slate-500'} truncate mt-0.5">${parsed.english}</div>` : ''}
+          ${subDescHtml}
+        </div>
+      `;
+
+      card.innerHTML = badgeHtml + editorActionsHtml + imageHtml + labelHtml;
+
+      card.onclick = (e) => {
+        if (e.target.closest('.btn-edit-tile')) {
+          e.stopPropagation();
+          openEditTileModal(tile);
+          return;
+        }
+        if (e.target.closest('.btn-duplicate-tile')) {
+          e.stopPropagation();
+          duplicateTile(tile);
+          return;
+        }
+        if (e.target.closest('.btn-delete-tile')) {
+          e.stopPropagation();
+          confirmDeleteTile(tile);
+          return;
+        }
+
+        if (isEditorMode) {
+          openEditTileModal(tile);
+        } else {
+          if (isFolder && tile.loadBoard) {
+            playTileSound(tile);
+            navigateToBoard(tile.loadBoard);
+          } else {
+            playTileSound(tile);
+            addToSentence(tile);
+          }
+        }
+      };
+
+      return card;
+    }
+
+    // Sentence Bar Operations
+    function addToSentence(tile) {
+      sentenceItems.push(tile);
+      renderSentenceBar();
+    }
+
+    function removeSentenceItem(index) {
+      sentenceItems.splice(index, 1);
+      renderSentenceBar();
+    }
+
+    function renderSentenceBar() {
+      const container = document.getElementById('sentence-items-container');
+      const placeholder = document.getElementById('sentence-empty-placeholder');
+      const counterElem = document.getElementById('sentence-item-count');
+
+      counterElem.textContent = sentenceItems.length;
+
+      if (sentenceItems.length === 0) {
+        container.innerHTML = '';
+        container.appendChild(placeholder);
+        placeholder.classList.remove('hidden');
+        return;
+      }
+
+      container.innerHTML = '';
+
+      sentenceItems.forEach((item, idx) => {
+        const chip = document.createElement('div');
+        chip.className = `flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2 py-1 shadow-2xs shrink-0 cursor-pointer hover:bg-slate-50 transition`;
+        chip.style.borderLeft = `4px solid #2563eb`;
+        
+        const parsed = parseBilingual(item.label);
+        
+        let imgHtml = '';
+        if (item.image) {
+          imgHtml = `<img src="${item.image}" class="w-7 h-7 object-contain rounded" onerror="this.style.display='none'" />`;
+        } else {
+          imgHtml = `<span class="text-sm">🍽️</span>`;
+        }
+
+        chip.innerHTML = `
+          ${imgHtml}
+          <div class="text-left leading-none">
+            <div class="text-xs sm:text-sm font-black text-slate-900">${parsed.cantonese || item.label}</div>
+            ${parsed.english ? `<div class="text-[10px] text-slate-500 font-medium truncate max-w-[80px]">${parsed.english}</div>` : ''}
+          </div>
+          <button type="button" class="btn-remove-chip ml-1 text-slate-400 hover:text-rose-600 font-bold text-xs p-0.5 rounded cursor-pointer" title="移除此項 Remove">
+            ✕
+          </button>
+        `;
+
+        chip.onclick = (e) => {
+          if (e.target.closest('.btn-remove-chip')) {
+            e.stopPropagation();
+            removeSentenceItem(idx);
+          } else {
+            playTileSound(item);
+          }
+        };
+
+        container.appendChild(chip);
+      });
+
+      container.scrollLeft = container.scrollWidth;
+    }
+
+    // Navigation Operations
+    function navigateToBoard(boardId) {
+      const targetBoard = boards.find(b => b.id === boardId);
+      if (!targetBoard) {
+        showToast('找不到目標版面 (Board not found)');
+        return;
+      }
+
+      currentBoardId = boardId;
+      if (navigationHistory[navigationHistory.length - 1] !== boardId) {
+        navigationHistory.push(boardId);
+      }
+      renderCurrentBoard();
+    }
+
+    function navigateBack() {
+      if (navigationHistory.length > 1) {
+        navigationHistory.pop();
+        currentBoardId = navigationHistory[navigationHistory.length - 1];
+        renderCurrentBoard();
+      }
+    }
+
+    function navigateHome() {
+      const rootBoard = boards.find(b => b.isRoot) || boards[0];
+      currentBoardId = rootBoard.id;
+      navigationHistory = [currentBoardId];
+      renderCurrentBoard();
+    }
+
+    // Therapist Mode Operations
+    function moveTileToBoard(tileId, targetBoardId, targetBoardName) {
+      const currentBoard = getCurrentBoard();
+      const tileIndex = currentBoard.tiles.findIndex(t => t.id === tileId);
+      if (tileIndex === -1) return;
+
+      const [tile] = currentBoard.tiles.splice(tileIndex, 1);
+      const targetBoard = boards.find(b => b.id === targetBoardId);
+      if (!targetBoard) return;
+
+      if (!targetBoard.tiles) targetBoard.tiles = [];
+      targetBoard.tiles.push(tile);
+
+      saveData();
+      renderCurrentBoard();
+      const parsed = parseBilingual(targetBoardName || targetBoard.name);
+      showToast(`已成功將「${tile.label}」移至「${parsed.cantonese || targetBoard.name}」！`);
+    }
+
+    function reorderTileInBoard(draggedId, targetId) {
+      const currentBoard = getCurrentBoard();
+      const fromIdx = currentBoard.tiles.findIndex(t => t.id === draggedId);
+      const toIdx = currentBoard.tiles.findIndex(t => t.id === targetId);
+      if (fromIdx === -1 || toIdx === -1) return;
+
+      const [movedTile] = currentBoard.tiles.splice(fromIdx, 1);
+      currentBoard.tiles.splice(toIdx, 0, movedTile);
+
+      saveData();
+      renderCurrentBoard();
+      showToast('已更新卡片排列順序 (Reordered)');
+    }
+
+    function duplicateTile(tile) {
+      const currentBoard = getCurrentBoard();
+      const newTile = cloneData(tile);
+      newTile.id = 'tile_' + Math.random().toString(36).substring(2, 9);
+      newTile.label = newTile.label + ' (副本)';
+      currentBoard.tiles.push(newTile);
+      saveData();
+      renderCurrentBoard();
+      showToast(`已複製卡片「${newTile.label}」！`);
+    }
+
+    function openEditTileModal(tile = null) {
+      const modal = document.getElementById('modal-edit-tile');
+      const heading = document.getElementById('modal-tile-heading');
+      const idInput = document.getElementById('edit-tile-id');
+      const cLabelInput = document.getElementById('edit-chinese-label');
+      const eLabelInput = document.getElementById('edit-english-label');
+      const typeBtn = document.getElementById('type-button');
+      const typeFld = document.getElementById('type-folder');
+      const loadBoardField = document.getElementById('field-load-board');
+      const loadBoardSelect = document.getElementById('edit-load-board');
+      const moveBoardSelect = document.getElementById('edit-current-board-select');
+      const imgUrlInput = document.getElementById('edit-image-url');
+      const imgPreview = document.getElementById('preview-image-elem');
+      const imgPlaceholder = document.getElementById('preview-placeholder');
+
+      loadBoardSelect.innerHTML = '';
+      moveBoardSelect.innerHTML = '';
+      boards.forEach(b => {
+        const optLoad = document.createElement('option');
+        optLoad.value = b.id;
+        optLoad.textContent = b.name + (b.isRoot ? ' (首頁 Home)' : '');
+        loadBoardSelect.appendChild(optLoad);
+
+        const optMove = document.createElement('option');
+        optMove.value = b.id;
+        optMove.textContent = b.name + (b.isRoot ? ' (首頁 Home)' : '');
+        if (b.id === currentBoardId) optMove.selected = true;
+        moveBoardSelect.appendChild(optMove);
+      });
+
+      if (tile) {
+        heading.innerHTML = `<span>✏️</span> 編輯卡片 Edit Card`;
+        idInput.value = tile.id;
+        const parsed = parseBilingual(tile.label);
+        cLabelInput.value = parsed.cantonese;
+        eLabelInput.value = parsed.english;
+
+        if (tile.type === 'folder') {
+          typeFld.checked = true;
+          loadBoardField.classList.remove('hidden');
+          if (tile.loadBoard) loadBoardSelect.value = tile.loadBoard;
+        } else {
+          typeBtn.checked = true;
+          loadBoardField.classList.add('hidden');
+        }
+
+        imgUrlInput.value = tile.image || '';
+        
+        if (tile.image) {
+          imgPreview.src = tile.image;
+          imgPreview.classList.remove('hidden');
+          imgPlaceholder.classList.add('hidden');
+        } else {
+          imgPreview.classList.add('hidden');
+          imgPlaceholder.classList.remove('hidden');
+        }
+      } else {
+        heading.innerHTML = `<span>➕</span> 新增卡片 Add New Card`;
+        idInput.value = 'tile_' + Math.random().toString(36).substring(2, 9);
+        cLabelInput.value = '';
+        eLabelInput.value = '';
+        typeBtn.checked = true;
+        loadBoardField.classList.add('hidden');
+        imgUrlInput.value = '';
+        imgPreview.classList.add('hidden');
+        imgPlaceholder.classList.remove('hidden');
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeEditTileModal() {
+      document.getElementById('modal-edit-tile').classList.add('hidden');
+    }
+
+    function confirmDeleteTile(tile) {
+      showConfirmDialog('刪除卡片 Delete Card', `您確定要刪除「${tile.label}」嗎？`, () => {
+        const board = getCurrentBoard();
+        board.tiles = board.tiles.filter(t => t.id !== tile.id);
+        saveData();
+        renderCurrentBoard();
+        showToast(`已刪除「${tile.label}」`);
+      });
+    }
+
+    function openBoardsModal() {
+      const modal = document.getElementById('modal-manage-boards');
+      renderBoardsList();
+      modal.classList.remove('hidden');
+    }
+
+    function renderBoardsList() {
+      const container = document.getElementById('boards-list-container');
+      container.innerHTML = '';
+
+      boards.forEach(b => {
+        const row = document.createElement('div');
+        row.className = `flex items-center justify-between p-2.5 rounded-xl border ${b.isRoot ? 'bg-blue-50/70 border-blue-300' : 'bg-slate-50 border-slate-200'}`;
+        
+        row.innerHTML = `
+          <div class="flex items-center gap-2">
+            ${b.isRoot ? '<span class="text-blue-600 text-sm font-bold" title="目前首頁 Current Home">🏠 首頁</span>' : '<span class="text-slate-400 text-sm">📁</span>'}
+            <div>
+              <span class="text-sm font-bold text-slate-800">${b.name}</span>
+              <span class="text-xs text-slate-400 ml-1">(${b.tiles ? b.tiles.length : 0} 項)</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5">
+            ${!b.isRoot ? `
+              <button type="button" class="btn-set-root px-2 py-1 bg-white hover:bg-blue-50 text-blue-700 text-xs font-bold rounded-lg border border-slate-200 shadow-xs cursor-pointer" title="將此版面設為首頁 Set as Home">
+                設為首頁
+              </button>
+            ` : ''}
+            <button type="button" class="btn-open-board px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg shadow-xs cursor-pointer">
+              進入
+            </button>
+            ${!b.isRoot ? `
+              <button type="button" class="btn-delete-board text-rose-500 hover:text-rose-700 p-1 font-bold text-xs cursor-pointer" title="刪除此版面 Delete Board">
+                🗑️
+              </button>
+            ` : ''}
+          </div>
+        `;
+
+        const btnSetRoot = row.querySelector('.btn-set-root');
+        if (btnSetRoot) {
+          btnSetRoot.onclick = () => {
+            boards.forEach(x => x.isRoot = false);
+            b.isRoot = true;
+            saveData();
+            renderBoardsList();
+            showToast(`已將「${b.name}」設為 AAC 首頁！`);
+          };
+        }
+
+        const btnOpen = row.querySelector('.btn-open-board');
+        btnOpen.onclick = () => {
+          document.getElementById('modal-manage-boards').classList.add('hidden');
+          navigateToBoard(b.id);
+        };
+
+        const btnDelete = row.querySelector('.btn-delete-board');
+        if (btnDelete) {
+          btnDelete.onclick = () => {
+            showConfirmDialog('刪除版面 Delete Board', `確定要刪除「${b.name}」版面嗎？`, () => {
+              boards = boards.filter(x => x.id !== b.id);
+              saveData();
+              renderBoardsList();
+              if (currentBoardId === b.id) {
+                navigateHome();
+              }
+              showToast(`已刪除「${b.name}」版面`);
+            });
+          };
+        }
+
+        container.appendChild(row);
+      });
+    }
+
+    function exportBoardsJSON() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(boards, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `AAC_Market_Boards_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast('已成功匯出 AAC 版面設定 JSON！');
+    }
+
+    function resetToDefaultTemplate() {
+      showConfirmDialog('重設為預設範本 Reset to Default', '確定要將所有版面、資料夾與項目重設回原始範本嗎？現有自訂修改將會被覆蓋。', () => {
+        boards = cloneData(ORIGINAL_BOARDS_DATA);
+        saveData();
+        const rootBoard = boards.find(b => b.isRoot) || boards[0];
+        currentBoardId = rootBoard.id;
+        navigationHistory = [currentBoardId];
+        renderCurrentBoard();
+        showToast('已成功重設為原始 AAC 街市範本！');
+      });
+    }
+
+    // --- ENHANCED CROSS-DEVICE SYNC MODAL LOGIC ---
+    function openSyncModal() {
+      const modal = document.getElementById('modal-sync');
+
+      // 1. Prepare Delta Share URL
+      const baseUrl = getShareableBaseUrl();
+      const delta = computeDelta(boards, ORIGINAL_BOARDS_DATA);
+      let shareUrl = baseUrl;
+      if (delta && (delta.nb || delta.mb || delta.st)) {
+        const comp = LZString.compressToEncodedURIComponent(JSON.stringify(delta));
+        shareUrl = baseUrl + '#delta=' + comp;
+      }
+
+      const inputUrl = document.getElementById('input-shareable-url');
+      inputUrl.value = shareUrl;
+
+      // Check if in sandbox
+      const isSandbox = (window.location.href.startsWith('about:') || window.location.href.startsWith('blob:') || window.location.href.startsWith('file:'));
+      const sandboxHelper = document.getElementById('sandbox-domain-helper');
+      if (isSandbox && !localStorage.getItem('aac_custom_host_url')) {
+        sandboxHelper.classList.remove('hidden');
+      } else {
+        sandboxHelper.classList.add('hidden');
+      }
+
+      // 2. Render crisp QR code using compact URL or Delta
+      const qrRender = document.getElementById('qrcode-render');
+      qrRender.innerHTML = '';
+      try {
+        if (typeof QRCode !== 'undefined') {
+          qrcodeInstance = new QRCode(qrRender, {
+            text: shareUrl,
+            width: 140,
+            height: 140,
+            colorDark: "#0f172a",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.M
+          });
+        } else {
+          qrRender.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(shareUrl)}" alt="QR Code" class="w-36 h-36" />`;
+        }
+      } catch (err) {
+        console.warn('QR code render fallback:', err);
+        qrRender.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(shareUrl)}" alt="QR Code" class="w-36 h-36" />`;
+      }
+
+      // 3. Prepare One-Click Code String
+      const codeString = generateSyncCodeString();
+      document.getElementById('textarea-export-code').value = codeString;
+      document.getElementById('textarea-import-code').value = '';
+
+      // 4. Prepare Cloud room code
+      const roomInput = document.getElementById('input-room-code');
+      if (!roomInput.value) {
+        roomInput.value = 'AAC' + Math.floor(1000 + Math.random() * 9000);
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    function copyShareUrlToClipboard() {
+      const shareUrl = document.getElementById('input-shareable-url').value;
+      copyTextToClipboard(shareUrl, '✅ 已複製專屬同步連結！在另一部裝置開啟即可自動同步。');
+    }
+
+    function copySyncCodeToClipboard() {
+      const code = document.getElementById('textarea-export-code').value;
+      copyTextToClipboard(code, '✅ 已複製同步代碼！發送至另一部手機貼上即可。');
+    }
+
+    function copyTextToClipboard(text, successMsg) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast(successMsg);
+        }).catch(() => {
+          fallbackCopyText(text, successMsg);
+        });
+      } else {
+        fallbackCopyText(text, successMsg);
+      }
+    }
+
+    function fallbackCopyText(text, successMsg) {
+      const tempArea = document.createElement('textarea');
+      tempArea.value = text;
+      tempArea.style.position = 'fixed';
+      tempArea.style.opacity = '0';
+      document.body.appendChild(tempArea);
+      tempArea.focus();
+      tempArea.select();
+      try {
+        document.execCommand('copy');
+        showToast(successMsg);
+      } catch (e) {
+        showToast('請手動選取並複製字串');
+      }
+      document.body.removeChild(tempArea);
+    }
+
+    // Real, Working Cloud Synchronization via Multi-Provider KV
+    async function uploadToCloud(roomCode) {
+      const status = document.getElementById('cloud-sync-status');
+      const cleanRoom = roomCode.trim().toUpperCase();
+      if (!cleanRoom) {
+        showToast('請先輸入房間代碼');
+        return;
+      }
+
+      status.innerHTML = '<span class="text-blue-600 font-bold">正在上傳至雲端同步伺服器...</span>';
+      
+      const payload = {
+        v: 3,
+        room: cleanRoom,
+        updatedAt: Date.now(),
+        boards: boards
+      };
+
+      let uploadSuccess = false;
+
+      // Provider 1: KV Store
+      try {
+        const kvUrl = `https://kvdb.io/aac_market_sync_2026/room_${cleanRoom}`;
+        const res = await fetch(kvUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) uploadSuccess = true;
+      } catch (e) {}
+
+      // Provider 2: Backup REST store
+      try {
+        const res = await fetch('https://api.restful-api.dev/objects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'AAC_SYNC_' + cleanRoom, data: payload })
+        });
+        if (res.ok) {
+          const resData = await res.json();
+          uploadSuccess = true;
+          // Store mapping in local memory
+          localStorage.setItem('aac_cloud_id_' + cleanRoom, resData.id);
+        }
+      } catch (e) {}
+
+      if (uploadSuccess) {
+        status.innerHTML = `<span class="text-emerald-700 font-bold">✅ 上傳成功！在另一部裝置輸入「${cleanRoom}」並點擊「下載同步」即可！</span>`;
+        showToast(`已成功上傳至房間 [${cleanRoom}]！`);
+      } else {
+        status.innerHTML = `<span class="text-amber-700 font-bold">💡 雲端連線失敗。強烈建議切換至「複製/貼上代碼」或「掃碼」，免伺服器 100% 成功！</span>`;
+        showToast('建議使用「複製/貼上代碼」，免雲端伺服器亦可 100% 同步！');
+      }
+    }
+
+    async function downloadFromCloud(roomCode, isAuto = false) {
+      const status = document.getElementById('cloud-sync-status');
+      const cleanRoom = roomCode.trim().toUpperCase();
+      if (!cleanRoom) {
+        showToast('請先輸入房間代碼');
+        return;
+      }
+
+      status.innerHTML = '<span class="text-blue-600 font-bold">正在從雲端下載最新設定...</span>';
+      let downloadedBoards = null;
+
+      // Try Provider 1: KV Store
+      try {
+        const kvUrl = `https://kvdb.io/aac_market_sync_2026/room_${cleanRoom}`;
+        const res = await fetch(kvUrl);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.boards)) {
+            downloadedBoards = data.boards;
+          }
+        }
+      } catch (e) {}
+
+      // Try Provider 2: REST store
+      if (!downloadedBoards) {
+        try {
+          const localId = localStorage.getItem('aac_cloud_id_' + cleanRoom);
+          if (localId) {
+            const res = await fetch(`https://api.restful-api.dev/objects/${localId}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data && data.data && Array.isArray(data.data.boards)) {
+                downloadedBoards = data.data.boards;
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (downloadedBoards) {
+        boards = downloadedBoards;
+        saveData();
+        renderCurrentBoard();
+        status.innerHTML = `<span class="text-emerald-700 font-bold">✅ 已成功下載並同步最新設定！</span>`;
+        showToast(`已成功同步房間 [${cleanRoom}] 的設定！`);
+      } else {
+        status.innerHTML = `<span class="text-rose-700 font-bold">未找到房間 [${cleanRoom}] 的資料。請確認上傳端已點擊「上傳」，或使用「複製/貼上代碼」。</span>`;
+        if (!isAuto) showToast('未找到雲端記錄，請使用「複製/貼上代碼」同步！');
+      }
+    }
+
+    function showToast(msg) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'bg-slate-900/95 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-xl border border-slate-700 pointer-events-auto transition-all transform translate-y-2 flex items-center gap-2';
+      toast.innerHTML = `<span>💬</span> <span>${msg}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.remove('translate-y-2');
+      }, 10);
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    let pendingConfirmCallback = null;
+    function showConfirmDialog(title, message, onConfirm) {
+      const modal = document.getElementById('modal-confirm');
+      document.getElementById('confirm-title').textContent = title;
+      document.getElementById('confirm-message').textContent = message;
+      pendingConfirmCallback = onConfirm;
+      modal.classList.remove('hidden');
+    }
+
+    // Setup and Listeners
+    document.addEventListener('DOMContentLoaded', () => {
+      initData();
+      renderCurrentBoard();
+      renderSentenceBar();
+
+      // Sync & Share Modal Handlers
+      document.getElementById('btn-open-sync').onclick = openSyncModal;
+      document.getElementById('btn-sync-top').onclick = openSyncModal;
+      document.getElementById('btn-close-sync-modal').onclick = () => {
+        document.getElementById('modal-sync').classList.add('hidden');
+      };
+      document.getElementById('btn-close-sync-modal-bottom').onclick = () => {
+        document.getElementById('modal-sync').classList.add('hidden');
+      };
+      document.getElementById('btn-copy-share-url').onclick = copyShareUrlToClipboard;
+      document.getElementById('btn-copy-code-string').onclick = copySyncCodeToClipboard;
+
+      // Apply pasted code string
+      document.getElementById('btn-apply-code-string').onclick = () => {
+        const code = document.getElementById('textarea-import-code').value;
+        if (!code.trim()) {
+          showToast('請先貼上同步代碼');
+          return;
+        }
+        const ok = applySyncCodeString(code);
+        if (ok) {
+          document.getElementById('modal-sync').classList.add('hidden');
+        } else {
+          showToast('代碼無效，請確認複製了完整的代碼');
+        }
+      };
+
+      // Custom domain setting
+      const btnSaveHost = document.getElementById('btn-save-custom-host');
+      if (btnSaveHost) {
+        btnSaveHost.onclick = () => {
+          const custom = document.getElementById('input-custom-host').value.trim();
+          if (custom) {
+            localStorage.setItem('aac_custom_host_url', custom);
+            openSyncModal();
+            showToast('已更新網站分享網址！');
+          }
+        };
+      }
+
+      // Sync Tab Navigation
+      const tabQr = document.getElementById('tab-btn-qrcode');
+      const tabCode = document.getElementById('tab-btn-code');
+      const tabCloud = document.getElementById('tab-btn-cloud');
+      const contentQr = document.getElementById('tab-content-qrcode');
+      const contentCode = document.getElementById('tab-content-code');
+      const contentCloud = document.getElementById('tab-content-cloud');
+
+      tabQr.onclick = () => {
+        tabQr.className = 'px-3.5 py-2 border-b-2 border-blue-600 text-blue-600 cursor-pointer';
+        tabCode.className = 'px-3.5 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 cursor-pointer';
+        tabCloud.className = 'px-3.5 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 cursor-pointer';
+        contentQr.classList.remove('hidden');
+        contentCode.classList.add('hidden');
+        contentCloud.classList.add('hidden');
+      };
+
+      tabCode.onclick = () => {
+        tabCode.className = 'px-3.5 py-2 border-b-2 border-blue-600 text-blue-600 cursor-pointer';
+        tabQr.className = 'px-3.5 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 cursor-pointer';
+        tabCloud.className = 'px-3.5 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 cursor-pointer';
+        contentCode.classList.remove('hidden');
+        contentQr.classList.add('hidden');
+        contentCloud.classList.add('hidden');
+      };
+
+      tabCloud.onclick = () => {
+        tabCloud.className = 'px-3.5 py-2 border-b-2 border-blue-600 text-blue-600 cursor-pointer';
+        tabQr.className = 'px-3.5 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 cursor-pointer';
+        tabCode.className = 'px-3.5 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 cursor-pointer';
+        contentCloud.classList.remove('hidden');
+        contentQr.classList.add('hidden');
+        contentCode.classList.add('hidden');
+      };
+
+      // Cloud Upload / Download
+      document.getElementById('btn-cloud-upload').onclick = () => {
+        const code = document.getElementById('input-room-code').value.trim();
+        if (code) uploadToCloud(code);
+      };
+      document.getElementById('btn-cloud-download').onclick = () => {
+        const code = document.getElementById('input-room-code').value.trim();
+        if (code) downloadFromCloud(code);
+      };
+
+      // Therapist Mode Toggle Button in Header
+      const btnToggleEditor = document.getElementById('btn-toggle-editor');
+      const editorBanner = document.getElementById('editor-banner');
+      const editorBtnText = document.getElementById('editor-btn-text');
+
+      btnToggleEditor.onclick = () => {
+        isEditorMode = !isEditorMode;
+        if (isEditorMode) {
+          btnToggleEditor.className = 'px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-black rounded-xl border border-amber-600 flex items-center gap-1.5 shadow-xs transition cursor-pointer';
+          editorBtnText.textContent = '結束編輯 (Exit)';
+          editorBanner.classList.remove('hidden');
+          showToast('已開啟「言語治療師模式」');
+        } else {
+          btnToggleEditor.className = 'px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 flex items-center gap-1.5 shadow-xs transition cursor-pointer';
+          editorBtnText.textContent = '言語治療師模式';
+          editorBanner.classList.add('hidden');
+          showToast('已切換為「溝通模式」');
+        }
+        renderCurrentBoard();
+      };
+
+      // Grid Layout Selector
+      const gridSelect = document.getElementById('grid-layout-select');
+      gridSelect.onchange = () => {
+        currentGridMode = gridSelect.value;
+        applyGridColumns();
+      };
+
+      // Sentence Controls
+      document.getElementById('btn-sentence-speak').onclick = playSentenceSound;
+      document.getElementById('btn-sentence-backspace').onclick = () => {
+        if (sentenceItems.length > 0) {
+          sentenceItems.pop();
+          renderSentenceBar();
+        }
+      };
+      document.getElementById('btn-sentence-clear').onclick = () => {
+        sentenceItems = [];
+        renderSentenceBar();
+      };
+
+      // Navigation
+      document.getElementById('btn-nav-back').onclick = navigateBack;
+      document.getElementById('btn-nav-home').onclick = navigateHome;
+
+      // Editor Toolbar
+      document.getElementById('btn-add-item-top').onclick = () => openEditTileModal(null);
+      document.getElementById('btn-add-folder-top').onclick = () => {
+        const newFolderBoardId = 'board_' + Math.random().toString(36).substring(2, 9);
+        openEditTileModal({
+          id: 'tile_' + Math.random().toString(36).substring(2, 9),
+          label: '新資料夾 New Folder',
+          type: 'folder',
+          loadBoard: newFolderBoardId,
+          image: '',
+          backgroundColor: '#ffffff'
+        });
+      };
+      document.getElementById('btn-new-home-top').onclick = () => {
+        openBoardsModal();
+        document.getElementById('new-board-is-root').checked = true;
+        document.getElementById('new-board-name-input').focus();
+        showToast('請於上方輸入新主頁名稱，並點擊「建立版面」');
+      };
+      document.getElementById('btn-manage-boards-top').onclick = openBoardsModal;
+      document.getElementById('btn-export-json-top').onclick = exportBoardsJSON;
+      document.getElementById('btn-import-json-top').onclick = () => {
+        document.getElementById('import-file-input').click();
+      };
+      document.getElementById('import-file-input').onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const imported = JSON.parse(event.target.result);
+            if (Array.isArray(imported) && imported.length > 0) {
+              boards = imported;
+              saveData();
+              const rootBoard = boards.find(b => b.isRoot) || boards[0];
+              currentBoardId = rootBoard.id;
+              navigationHistory = [currentBoardId];
+              renderCurrentBoard();
+              showToast('成功匯入 AAC 版面檔案！');
+            } else {
+              showToast('匯入失敗：檔案格式不正確');
+            }
+          } catch (err) {
+            showToast('匯入失敗：無法解析 JSON');
+          }
+        };
+        reader.readAsText(file);
+      };
+      document.getElementById('btn-reset-default-top').onclick = resetToDefaultTemplate;
+
+      // Edit Modal Events
+      document.getElementById('btn-close-edit-modal').onclick = closeEditTileModal;
+      document.getElementById('btn-cancel-tile-modal').onclick = closeEditTileModal;
+
+      const typeBtn = document.getElementById('type-button');
+      const typeFld = document.getElementById('type-folder');
+      const loadBoardField = document.getElementById('field-load-board');
+      typeBtn.onchange = () => loadBoardField.classList.add('hidden');
+      typeFld.onchange = () => loadBoardField.classList.remove('hidden');
+
+      const imgUrlInput = document.getElementById('edit-image-url');
+      const imgPreview = document.getElementById('preview-image-elem');
+      const imgPlaceholder = document.getElementById('preview-placeholder');
+      imgUrlInput.oninput = () => {
+        const val = imgUrlInput.value.trim();
+        if (val) {
+          imgPreview.src = val;
+          imgPreview.classList.remove('hidden');
+          imgPlaceholder.classList.add('hidden');
+        } else {
+          imgPreview.classList.add('hidden');
+          imgPlaceholder.classList.remove('hidden');
+        }
+      };
+
+      const fileInput = document.getElementById('edit-image-file');
+      fileInput.onchange = () => {
+        const file = fileInput.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            imgUrlInput.value = e.target.result;
+            imgPreview.src = e.target.result;
+            imgPreview.classList.remove('hidden');
+            imgPlaceholder.classList.add('hidden');
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+
+      document.querySelectorAll('.preset-emoji-btn').forEach(btn => {
+        btn.onclick = () => {
+          const emoji = btn.dataset.emoji;
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><text y="96" font-size="96" text-anchor="middle" x="64">${emoji}</text></svg>`;
+          const svgDataUrl = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+          imgUrlInput.value = svgDataUrl;
+          imgPreview.src = svgDataUrl;
+          imgPreview.classList.remove('hidden');
+          imgPlaceholder.classList.add('hidden');
+        };
+      });
+
+      document.getElementById('btn-clear-image').onclick = () => {
+        imgUrlInput.value = '';
+        imgPreview.src = '';
+        imgPreview.classList.add('hidden');
+        imgPlaceholder.classList.remove('hidden');
+      };
+
+      document.getElementById('btn-test-modal-speech').onclick = () => {
+        const cText = document.getElementById('edit-chinese-label').value.trim();
+        const eText = document.getElementById('edit-english-label').value.trim();
+        speakBilingual(cText, eText);
+      };
+
+      document.getElementById('btn-duplicate-tile-modal').onclick = () => {
+        const tileId = document.getElementById('edit-tile-id').value;
+        const currentBoard = getCurrentBoard();
+        const tile = currentBoard.tiles.find(t => t.id === tileId);
+        if (tile) {
+          duplicateTile(tile);
+          closeEditTileModal();
+        }
+      };
+
+      document.getElementById('btn-delete-tile-modal').onclick = () => {
+        const tileId = document.getElementById('edit-tile-id').value;
+        const currentBoard = getCurrentBoard();
+        const tile = currentBoard.tiles.find(t => t.id === tileId);
+        if (tile) {
+          closeEditTileModal();
+          confirmDeleteTile(tile);
+        }
+      };
+
+      document.getElementById('form-edit-tile').onsubmit = (e) => {
+        e.preventDefault();
+        const tileId = document.getElementById('edit-tile-id').value;
+        const cText = document.getElementById('edit-chinese-label').value.trim();
+        const eText = document.getElementById('edit-english-label').value.trim();
+        const isFolder = document.getElementById('type-folder').checked;
+        const targetLoadBoard = document.getElementById('edit-load-board').value;
+        const targetCurrentBoardId = document.getElementById('edit-current-board-select').value;
+        const imgUrl = document.getElementById('edit-image-url').value.trim();
+
+        const fullLabel = eText ? `${cText} ${eText}` : cText;
+
+        if (isFolder && targetLoadBoard) {
+          let destBoard = boards.find(b => b.id === targetLoadBoard);
+          if (!destBoard) {
+            destBoard = {
+              id: targetLoadBoard,
+              name: fullLabel,
+              tiles: []
+            };
+            boards.push(destBoard);
+          }
+        }
+
+        const currentBoard = getCurrentBoard();
+        let tile = currentBoard.tiles ? currentBoard.tiles.find(t => t.id === tileId) : null;
+
+        if (tile) {
+          tile.label = fullLabel;
+          tile.type = isFolder ? 'folder' : 'button';
+          tile.image = imgUrl;
+          if (isFolder) {
+            tile.loadBoard = targetLoadBoard;
+          } else {
+            delete tile.loadBoard;
+          }
+
+          if (targetCurrentBoardId !== currentBoard.id) {
+            currentBoard.tiles = currentBoard.tiles.filter(t => t.id !== tileId);
+            const newBoard = boards.find(b => b.id === targetCurrentBoardId);
+            if (newBoard) {
+              if (!newBoard.tiles) newBoard.tiles = [];
+              newBoard.tiles.push(tile);
+            }
+          }
+        } else {
+          const newTile = {
+            id: tileId,
+            label: fullLabel,
+            type: isFolder ? 'folder' : 'button',
+            image: imgUrl,
+            backgroundColor: '#ffffff'
+          };
+          if (isFolder) {
+            newTile.loadBoard = targetLoadBoard;
+          }
+
+          const targetBoard = boards.find(b => b.id === targetCurrentBoardId) || currentBoard;
+          if (!targetBoard.tiles) targetBoard.tiles = [];
+          targetBoard.tiles.push(newTile);
+        }
+
+        saveData();
+        closeEditTileModal();
+        renderCurrentBoard();
+        showToast(`已儲存卡片「${fullLabel}」！`);
+      };
+
+      // Board Manager Events
+      document.getElementById('btn-close-boards-modal').onclick = () => {
+        document.getElementById('modal-manage-boards').classList.add('hidden');
+      };
+      document.getElementById('btn-done-boards-modal').onclick = () => {
+        document.getElementById('modal-manage-boards').classList.add('hidden');
+      };
+      document.getElementById('btn-create-board-submit').onclick = () => {
+        const input = document.getElementById('new-board-name-input');
+        const isRootCheck = document.getElementById('new-board-is-root');
+        const name = input.value.trim();
+        if (!name) {
+          showToast('請輸入版面名稱');
+          return;
+        }
+
+        const newId = 'board_' + Math.random().toString(36).substring(2, 9);
+        const isRoot = isRootCheck.checked;
+        if (isRoot) {
+          boards.forEach(b => b.isRoot = false);
+        }
+
+        const newBoard = {
+          id: newId,
+          name: name,
+          isRoot: isRoot,
+          tiles: []
+        };
+        boards.push(newBoard);
+        saveData();
+        input.value = '';
+        isRootCheck.checked = false;
+        renderBoardsList();
+        showToast(`已建立新版面「${name}」！`);
+      };
+
+      // Settings Modal Events
+      const modalSettings = document.getElementById('modal-settings');
+      document.getElementById('btn-open-settings').onclick = () => {
+        initVoices();
+        modalSettings.classList.remove('hidden');
+      };
+      document.getElementById('btn-close-settings-modal').onclick = () => {
+        modalSettings.classList.add('hidden');
+      };
+      document.getElementById('btn-close-settings-modal-bottom').onclick = () => {
+        modalSettings.classList.add('hidden');
+      };
+
+      const rateSlider = document.getElementById('setting-speech-rate');
+      const rateLabel = document.getElementById('label-speech-rate');
+      rateSlider.oninput = () => {
+        speechSettings.rate = parseFloat(rateSlider.value);
+        rateLabel.textContent = `${speechSettings.rate}x (${speechSettings.rate < 0.85 ? '清晰推薦' : '標準速度'})`;
+        saveData();
+      };
+
+      const pitchSlider = document.getElementById('setting-speech-pitch');
+      const pitchLabel = document.getElementById('label-speech-pitch');
+      pitchSlider.oninput = () => {
+        speechSettings.pitch = parseFloat(pitchSlider.value);
+        pitchLabel.textContent = `${speechSettings.pitch} (${speechSettings.pitch === 1.0 ? '自然清晰' : '已調整'})`;
+        saveData();
+      };
+
+      const pauseSlider = document.getElementById('setting-speech-pause');
+      const pauseLabel = document.getElementById('label-speech-pause');
+      pauseSlider.oninput = () => {
+        speechSettings.pause = parseInt(pauseSlider.value, 10);
+        pauseLabel.textContent = `${speechSettings.pause} 毫秒`;
+        saveData();
+      };
+
+      document.getElementById('btn-test-settings-speech').onclick = () => {
+        speakBilingual('西芹', 'Celery');
+      };
+
+      // Confirm Modal Events
+      const modalConfirm = document.getElementById('modal-confirm');
+      document.getElementById('btn-confirm-cancel').onclick = () => {
+        modalConfirm.classList.add('hidden');
+        pendingConfirmCallback = null;
+      };
+      document.getElementById('btn-confirm-ok').onclick = () => {
+        modalConfirm.classList.add('hidden');
+        if (pendingConfirmCallback) {
+          pendingConfirmCallback();
+          pendingConfirmCallback = null;
+        }
+      };
+    });
+  </script>
+</body>
+</html>
